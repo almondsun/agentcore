@@ -1,0 +1,73 @@
+{
+  "schema_version": "1",
+  "run_date": "2026-03-31",
+  "automation_scope": "positive",
+  "compare": false,
+  "dry_run": true,
+  "results_dir": "/home/marti/codex-eval-results",
+  "requested_case_ids": [
+    "rv-regression-review-positive",
+    "ia-ffi-boundary-positive",
+    "sa-parser-subprocess-positive"
+  ],
+  "selected_case_ids": [
+    "rv-regression-review-positive",
+    "ia-ffi-boundary-positive",
+    "sa-parser-subprocess-positive"
+  ],
+  "exit_code": 0,
+  "status_counts": {
+    "DRY-RUN": 3
+  },
+  "setup_errors": [],
+  "cases": [
+    {
+      "case_id": "rv-regression-review-positive",
+      "workflow": "reviewer",
+      "automation_kind": "positive",
+      "status": "DRY-RUN",
+      "runner_exit_code": 0,
+      "compare_exit_code": null,
+      "result_path": "/home/marti/codex-eval-results/2026-03-31/rv-regression-review-positive.json",
+      "raw_output_path": "/home/marti/codex-eval-results/2026-03-31/rv-regression-review-positive.raw.json",
+      "prompt_path": "/home/marti/codex-eval-results/2026-03-31/rv-regression-review-positive.prompt.txt",
+      "workspace_path": "/home/marti/codex-eval-results/2026-03-31/workspaces/rv-regression-review-positive",
+      "baseline_path": null,
+      "outcome": null,
+      "actual_trigger_behavior": null,
+      "message": "prompt staged; codex exec not invoked"
+    },
+    {
+      "case_id": "ia-ffi-boundary-positive",
+      "workflow": "interop-auditor",
+      "automation_kind": "positive",
+      "status": "DRY-RUN",
+      "runner_exit_code": 0,
+      "compare_exit_code": null,
+      "result_path": "/home/marti/codex-eval-results/2026-03-31/ia-ffi-boundary-positive.json",
+      "raw_output_path": "/home/marti/codex-eval-results/2026-03-31/ia-ffi-boundary-positive.raw.json",
+      "prompt_path": "/home/marti/codex-eval-results/2026-03-31/ia-ffi-boundary-positive.prompt.txt",
+      "workspace_path": "/home/marti/codex-eval-results/2026-03-31/workspaces/ia-ffi-boundary-positive",
+      "baseline_path": null,
+      "outcome": null,
+      "actual_trigger_behavior": null,
+      "message": "prompt staged; codex exec not invoked"
+    },
+    {
+      "case_id": "sa-parser-subprocess-positive",
+      "workflow": "security-auditor",
+      "automation_kind": "positive",
+      "status": "DRY-RUN",
+      "runner_exit_code": 0,
+      "compare_exit_code": null,
+      "result_path": "/home/marti/codex-eval-results/2026-03-31/sa-parser-subprocess-positive.json",
+      "raw_output_path": "/home/marti/codex-eval-results/2026-03-31/sa-parser-subprocess-positive.raw.json",
+      "prompt_path": "/home/marti/codex-eval-results/2026-03-31/sa-parser-subprocess-positive.prompt.txt",
+      "workspace_path": "/home/marti/codex-eval-results/2026-03-31/workspaces/sa-parser-subprocess-positive",
+      "baseline_path": null,
+      "outcome": null,
+      "actual_trigger_behavior": null,
+      "message": "prompt staged; codex exec not invoked"
+    }
+  ]
+}

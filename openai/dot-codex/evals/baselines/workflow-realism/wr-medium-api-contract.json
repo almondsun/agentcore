@@ -1,0 +1,24 @@
+{
+  "schema_version": "2",
+  "case_id": "wr-medium-api-contract",
+  "workflow": "workflow-realism",
+  "fixture_ref": "tiny-workflow-medium",
+  "run_timestamp": "2026-03-31T00:00:00Z",
+  "outcome": "pass",
+  "observed_subagents": [],
+  "observed_validation": [
+    "context:repo-inspected",
+    "implementation:main-agent",
+    "validation-skill:build-validate",
+    "command:pytest",
+    "compatibility:called-out"
+  ],
+  "observed_fail_signals": [],
+  "notes": "Baseline expects repo inspection, main-agent implementation, explicit compatibility callout, and broader validation for a caller-visible contract change; pr-explorer is optional when direct repo inspection is sufficient.",
+  "rubric": {
+    "trigger_match": true,
+    "output_shape_ok": true,
+    "safety_ok": true,
+    "validation_ok": true
+  }
+}

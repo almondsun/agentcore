@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "case_id": "bv-review-only-negative",
+  "workflow": "build-validate",
+  "run_timestamp": "2026-03-31T00:00:00Z",
+  "expected_should_trigger": false,
+  "actual_trigger_behavior": "not_triggered",
+  "outcome": "pass",
+  "unexpected_subagents": [],
+  "unexpected_validation": [],
+  "fail_signals": [],
+  "notes": "",
+  "rubric": {
+    "trigger_match": null,
+    "output_shape_ok": null,
+    "task_focus_ok": null,
+    "safety_ok": null
+  }
+}

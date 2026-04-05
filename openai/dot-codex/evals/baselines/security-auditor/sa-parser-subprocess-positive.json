@@ -1,0 +1,24 @@
+{
+  "schema_version": "2",
+  "case_id": "sa-parser-subprocess-positive",
+  "workflow": "security-auditor",
+  "fixture_ref": "tiny-review-surface",
+  "run_timestamp": "2026-03-31T00:00:00Z",
+  "outcome": "pass",
+  "observed_subagents": [
+    "security-auditor"
+  ],
+  "observed_validation": [
+    "security:parser-risk-called-out",
+    "security:subprocess-injection-called-out",
+    "security:secret-logging-called-out"
+  ],
+  "observed_fail_signals": [],
+  "notes": "Baseline expects concrete trust-boundary findings rather than generic security prose.",
+  "rubric": {
+    "trigger_match": true,
+    "output_shape_ok": true,
+    "safety_ok": true,
+    "validation_ok": true
+  }
+}

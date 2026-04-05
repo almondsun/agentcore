@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "case_id": "oi-review-request-negative",
+  "workflow": "orchestrated-implementation",
+  "run_timestamp": "2026-03-31T00:00:00Z",
+  "expected_should_trigger": false,
+  "actual_trigger_behavior": "not_triggered",
+  "outcome": "pass",
+  "unexpected_subagents": [],
+  "unexpected_validation": [],
+  "fail_signals": [],
+  "notes": "Baseline expects a review-only request to stay out of implementation planning and code-change orchestration.",
+  "rubric": {
+    "trigger_match": true,
+    "output_shape_ok": true,
+    "task_focus_ok": true,
+    "safety_ok": true
+  }
+}

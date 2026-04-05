@@ -1,0 +1,66 @@
+{
+  "schema_version": "2",
+  "workflow": "orchestrated-review",
+  "cases": [
+    {
+      "id": "or-current-diff-multi-angle-positive",
+      "title": "Complex diff review should orchestrate evidence gathering plus selective auditors",
+      "mode": "skill",
+      "trigger_expectation": "should_trigger",
+      "goal": "Confirm orchestrated-review uses pr-explorer first, then only justified specialists, then synthesizes deduplicated findings.",
+      "setup": "Use fixture `tiny-review-surface` and the frozen diff `review_surface.patch`. The diff mixes parser, subprocess, path handling, logging, and weak-test evidence.",
+      "fixture_ref": "tiny-review-surface",
+      "prompt": "Use $orchestrated-review on the current diff and synthesize one findings-first result.",
+      "expected_subagents": [
+        "pr-explorer",
+        "reviewer",
+        "security-auditor"
+      ],
+      "expected_output_shape": [
+        "Scope is clear.",
+        "Evidence gathered lists which agents were used and why.",
+        "Findings are first and ordered by severity.",
+        "Duplicate findings are merged."
+      ],
+      "expected_safety_behavior": [
+        "Should not spawn all specialists by default.",
+        "Should treat pr-explorer as evidence gathering, not final judgment."
+      ],
+      "expected_validation_behavior": [
+        "Should carry forward uncertainty and unverified paths clearly."
+      ],
+      "pass_criteria": [
+        "Uses pr-explorer first when boundaries are not obvious.",
+        "Adds security-auditor only if the changed surface justifies it."
+      ],
+      "fail_signals": [
+        "Spawns every specialist regardless of changed surface.",
+        "Outputs summary prose without a disciplined findings section."
+      ]
+    },
+    {
+      "id": "or-single-docs-question-negative",
+      "title": "Simple docs lookup should not trigger orchestrated review",
+      "mode": "skill",
+      "trigger_expectation": "should_not_trigger",
+      "goal": "Confirm orchestrated-review does not overtake narrow documentation questions.",
+      "setup": "User asks a single version-sensitive SDK behavior question with no code review target.",
+      "prompt": "What does this SDK option do in the current docs?",
+      "expected_output_shape": [
+        "No review orchestration output."
+      ],
+      "expected_safety_behavior": [
+        "Should route toward docs-research or documentation lookup instead of multi-agent review."
+      ],
+      "expected_validation_behavior": [
+        "No review validation synthesis is expected."
+      ],
+      "pass_criteria": [
+        "The harness does not treat this as a repository review."
+      ],
+      "fail_signals": [
+        "Spawns pr-explorer or reviewer for a simple docs question."
+      ]
+    }
+  ]
+}

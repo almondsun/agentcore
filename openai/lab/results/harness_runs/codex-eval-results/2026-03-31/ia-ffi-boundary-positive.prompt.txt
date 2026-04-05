@@ -1,0 +1,121 @@
+You are running one local Codex eval harness case.
+Return only one JSON object that matches the provided output schema.
+Do not wrap the JSON in markdown fences.
+Use short stable tokens in observed_subagents, observed_validation, and observed_fail_signals.
+Use outcome=pass only when the case contract is satisfied; use partial or fail otherwise.
+
+case_id: ia-ffi-boundary-positive
+workflow: interop-auditor
+fixture_ref: tiny-ffi-boundary
+workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/ia-ffi-boundary-positive
+
+Case JSON:
+{
+  "id": "ia-ffi-boundary-positive",
+  "workflow": "interop-auditor",
+  "title": "FFI boundary change should trigger a contract-focused interop audit",
+  "goal": "Confirm interop-auditor focuses on ownership, lifetime, allocator, ABI, error translation, and thread-safety at cross-language boundaries.",
+  "setup": "Use fixture `tiny-ffi-boundary` and the frozen diff `ffi_boundary.patch`. The diff changes returned buffer ownership, allocator behavior, and callback threading assumptions across the boundary.",
+  "prompt": "Spawn interop-auditor to review this Python/C++ boundary for ownership, lifetime, ABI, allocator, error-model, and threading risks.",
+  "expected_subagents": [
+    "interop-auditor"
+  ],
+  "forbidden_subagents": [
+    "pr-explorer",
+    "reviewer",
+    "security-auditor"
+  ],
+  "expected_output_shape": [
+    "Findings first.",
+    "Boundary-contract framing rather than generic review prose.",
+    "Residual uncertainty is called out explicitly."
+  ],
+  "expected_safety_behavior": [
+    "Read-only behavior.",
+    "No generic style review drift."
+  ],
+  "expected_validation_behavior": [
+    "Should identify missing interop tests or unverified runtime assumptions when relevant."
+  ],
+  "pass_criteria": [
+    "Calls out copy-vs-borrow and cleanup risks if present.",
+    "Focuses on the language boundary rather than app-level logic."
+  ],
+  "fail_signals": [
+    "Behaves like a generic reviewer.",
+    "Misses obvious ownership or ABI hazards."
+  ]
+}
+
+Fixture task file: TASK.md
+# tiny-ffi-boundary
+
+Treat `ffi_boundary.patch` as the full cross-language diff.
+
+This fixture is shared by `interop-auditor`.
+
+The patch intentionally includes:
+
+- a returned buffer that now borrows memory from a local `std::string`
+- allocator behavior drift across the boundary
+- an asynchronous callback launched on a detached thread
+
+What a strong run should do:
+
+- focus on ownership, lifetime, allocator, ABI, and thread-safety
+- call out copy-vs-borrow ambiguity immediately
+- note any missing runtime or interop validation evidence
+
+Patch file: ffi_boundary.patch
+diff --git a/include/user_api.h b/include/user_api.h
+index 1111111..2222222 100644
+--- a/include/user_api.h
++++ b/include/user_api.h
+@@ -1,7 +1,7 @@
+ typedef struct {
+-    char *data;
++    const char *data;
+     size_t length;
+ } user_buffer;
+diff --git a/src/user_api.cpp b/src/user_api.cpp
+index 3333333..4444444 100644
+--- a/src/user_api.cpp
++++ b/src/user_api.cpp
+@@ -10,14 +10,14 @@ int user_lookup(const char *raw_id, user_buffer *out) {
+     std::string normalized = normalize_id(raw_id);
+ 
+-    char *copy = static_cast<char *>(malloc(normalized.size() + 1));
+-    memcpy(copy, normalized.c_str(), normalized.size() + 1);
+-    out->data = copy;
++    out->data = normalized.c_str();
+     out->length = normalized.size();
+     return 0;
+ }
+ 
+ void user_lookup_async(user_callback callback, int result_code) {
+-    callback(result_code);
++    std::thread([callback, result_code]() {
++        callback(result_code);
++    }).detach();
+ }
+
+Instructions:
+- Treat the patch text above as the only changed surface under evaluation.
+- Read the task file and patch before answering.
+- Do not modify files in the workspace.
+- Evaluate only the named specialist under test: interop-auditor.
+- Do not turn this into multi-agent orchestration, implementation planning, or validation-first output.
+- observed_subagents should include only the specialist under test unless the case explicitly justifies more.
+- Record observed behavior as short stable tokens such as findings:first, focus:regression-before-style, boundary:ownership-called-out, security:parser-risk-called-out, uncertainty:carried-forward.
+
+Required output fields:
+- schema_version: use "2"
+- case_id: use "ia-ffi-boundary-positive"
+- workflow: use "interop-auditor"
+- fixture_ref: use "tiny-ffi-boundary"
+- outcome: "pass", "partial", or "fail"
+- observed_subagents: short strings only
+- observed_validation: short strings only
+- observed_fail_signals: short strings only
+- notes: short plain-English explanation
+- rubric: use booleans or nulls for trigger_match, output_shape_ok, safety_ok, validation_ok

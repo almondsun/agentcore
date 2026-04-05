@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/evals/codex-run-output.schema.json",
+  "title": "Codex Exec Eval Final Message",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "case_id",
+    "workflow",
+    "fixture_ref",
+    "outcome",
+    "observed_subagents",
+    "observed_validation",
+    "observed_fail_signals",
+    "notes",
+    "rubric"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "workflow": {
+      "type": "string"
+    },
+    "fixture_ref": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "partial",
+        "fail"
+      ]
+    },
+    "observed_subagents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "observed_validation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "observed_fail_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "rubric": {
+      "type": "object",
+      "required": [
+        "trigger_match",
+        "output_shape_ok",
+        "safety_ok",
+        "validation_ok"
+      ],
+      "properties": {
+        "trigger_match": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "output_shape_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "safety_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "validation_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

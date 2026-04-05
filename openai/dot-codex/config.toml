@@ -1,0 +1,257 @@
+# ~/.codex/config.toml
+#
+# Global Codex defaults for mixed Python / C / C++ systems work.
+# Pair this with ~/.codex/AGENTS.md for high-signal engineering guidance.
+#
+# Design goals:
+# - Safe defaults globally
+# - Strong review / interop profiles
+# - Minimal accidental network / credential exposure
+# - Good support for layered AGENTS.md files
+#
+# Use profiles when you want to loosen the default posture for a specific session:
+#   codex --profile edit
+#   codex --profile review
+#   codex --profile interop
+#   codex --profile research
+#   codex --profile ci
+
+################################################################################
+# Core model selection
+################################################################################
+
+model = "gpt-5.4"
+review_model = "gpt-5.4"
+model_provider = "openai"
+
+# Keep tone direct and engineering-focused.
+personality = "pragmatic"
+
+################################################################################
+# Reasoning and verbosity
+################################################################################
+
+# Balanced default for daily engineering work.
+model_reasoning_effort = "medium"
+
+# Spend more thought in plan-heavy paths.
+plan_mode_reasoning_effort = "high"
+
+# Keep reasoning summaries compact unless a profile asks for more.
+model_reasoning_summary = "concise"
+
+# Avoid bloated answers by default.
+model_verbosity = "medium"
+
+################################################################################
+# Approval, sandbox, and web
+################################################################################
+
+# Safe global default:
+# - Codex can inspect and propose changes comfortably
+# - dangerous or non-routine actions still require approval
+approval_policy = "on-request"
+
+# Conservative global sandbox.
+# Use the "edit" or "interop" profiles when you explicitly want file edits.
+sandbox_mode = "workspace-write"
+
+# Allow login-shell semantics when needed by shell-based tools.
+allow_login_shell = true
+
+# Good default for documentation lookup without forcing live fetches everywhere.
+web_search = "cached"
+
+################################################################################
+# Instruction discovery / AGENTS.md layering
+################################################################################
+
+# Raise the instruction budget so global + repo + nested AGENTS files are less
+# likely to be truncated in larger codebases.
+project_doc_max_bytes = 65536
+
+# Search for project roots across common VCS markers.
+project_root_markers = [".git", ".hg", ".sl"]
+
+# Uncomment only if you actually use alternate instruction filenames.
+# project_doc_fallback_filenames = ["TEAM_GUIDE.md", ".agents.md"]
+
+################################################################################
+# Misc global behavior
+################################################################################
+
+check_for_update_on_startup = true
+approvals_reviewer = "guardian_subagent"
+
+# Uncomment and adjust if you want clickable file citations in a specific IDE.
+# file_opener = "vscode"         # or "cursor", "windsurf", "vscode-insiders", "none"
+
+################################################################################
+# Multi-agent limits
+################################################################################
+
+[agents]
+# Conservative limits for cost / complexity control.
+max_threads = 4
+max_depth = 1
+# job_max_runtime_seconds = 1800
+
+################################################################################
+# Sandbox settings used when sandbox_mode = "workspace-write"
+################################################################################
+
+[sandbox_workspace_write]
+# Keep additional writable roots empty by default.
+writable_roots = []
+
+# Keep outbound network enabled in the writable sandbox so Codex backend and
+# docs MCP access continue to work during normal sessions.
+network_access = true
+
+# Leave temp access at standard defaults unless you need stricter isolation.
+exclude_tmpdir_env_var = false
+exclude_slash_tmp = false
+
+################################################################################
+# Shell environment handling
+################################################################################
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+# Add a few extra credential-like patterns beyond the built-in KEY/SECRET/TOKEN
+# exclusions without being overly destructive to normal dev environments.
+exclude = ["*PASSWORD*", "*PRIVATE_KEY*", "*CREDENTIAL*"]
+
+# Explicit overrides for the shared eval venv so shell tools and local harness
+# runs see the same interpreter by default.
+set = { PATH = "/home/marti/.venvs/codex-evals/bin:/usr/local/bin:/usr/bin:/bin", VIRTUAL_ENV = "/home/marti/.venvs/codex-evals" }
+
+# Leave empty to avoid accidentally stripping essential build variables.
+include_only = []
+
+################################################################################
+# History and TUI behavior
+################################################################################
+
+[history]
+persistence = "save-all"
+# max_bytes = 5242880
+
+[tui]
+# Keep the terminal quiet by default.
+notifications = false
+theme = "catppuccin-mocha"
+
+################################################################################
+# Feature flags
+################################################################################
+
+[features]
+unified_exec = true
+shell_snapshot = true
+multi_agent = true
+personality = true
+smart_approvals = false
+enable_request_compression = true
+guardian_approval = true
+prevent_idle_sleep = true
+
+################################################################################
+# Profiles
+################################################################################
+
+[profiles.edit]
+# Use for normal trusted editing sessions.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
+model_reasoning_summary = "concise"
+model_verbosity = "medium"
+web_search = "cached"
+
+[profiles.review]
+# Use for code review, auditing, and bug-hunting.
+approval_policy = "on-request"
+sandbox_mode = "read-only"
+model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
+model_reasoning_summary = "detailed"
+model_verbosity = "medium"
+web_search = "cached"
+
+[profiles.interop]
+# Use for Python/C/C++ boundaries, FFI, ABI, ownership, marshaling, and lifetime work.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
+model_reasoning_summary = "detailed"
+model_verbosity = "medium"
+web_search = "cached"
+
+[profiles.research]
+# Use when you explicitly want fresher documentation or standards info.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
+model_reasoning_summary = "concise"
+model_verbosity = "medium"
+web_search = "live"
+
+[profiles.ci]
+# Use for non-interactive inspection or scripted runs.
+approval_policy = "never"
+sandbox_mode = "read-only"
+model_reasoning_effort = "low"
+plan_mode_reasoning_effort = "low"
+model_reasoning_summary = "none"
+model_verbosity = "low"
+web_search = "disabled"
+
+[projects."/home/marti/code/tmp"]
+trust_level = "trusted"
+
+[projects."/home/marti"]
+trust_level = "trusted"
+
+[projects."/home/marti/code/tmp/test_agent"]
+trust_level = "trusted"
+
+[projects."/home/marti/code/tmp/homeworks"]
+trust_level = "trusted"
+
+[projects."/home/marti/code/codexlab"]
+trust_level = "trusted"
+
+[projects."/home/marti/code/iQodec"]
+trust_level = "trusted"
+
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[agents.reviewer]
+description = "General code review specialist for correctness, regressions, compatibility, lifecycle/resource safety, maintainability, and test coverage."
+config_file = "agents/reviewer.toml"
+
+[agents.interop-auditor]
+description = "Cross-language contract auditor for Python/C/C++ interop, FFI, ABI, marshaling, ownership, lifetime, allocator rules, encoding, error translation, and thread-safety assumptions."
+config_file = "agents/interop-auditor.toml"
+
+[agents.security-auditor]
+description = "Security audit specialist for trust boundaries, parsing, subprocesses, paths, secrets, serialization, native safety, dangerous defaults, and deployment-sensitive changes."
+config_file = "agents/security-auditor.toml"
+
+[agents.docs-researcher]
+description = "Documentation and API verification specialist for exact docs-backed behavior, contracts, SDK usage, and version-sensitive options."
+config_file = "agents/docs-researcher.toml"
+
+[agents.pr-explorer]
+description = "Diff-aware exploration specialist for mapping changed subsystems, execution paths, affected boundaries, and likely review hotspots before deeper review."
+config_file = "agents/pr-explorer.toml"

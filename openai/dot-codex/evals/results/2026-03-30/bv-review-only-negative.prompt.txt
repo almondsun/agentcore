@@ -1,0 +1,63 @@
+You are running one local Codex eval harness false-trigger case.
+The named workflow below should not trigger as the primary path for the task.
+Return only one JSON object that matches the provided false-trigger output schema.
+Do not wrap the JSON in markdown fences.
+Use short stable tokens in unexpected_subagents, unexpected_validation, and fail_signals.
+
+case_id: bv-review-only-negative
+workflow_under_test: build-validate
+expected_should_trigger: false
+workspace_root: /home/marti/.codex/evals/results/2026-03-30/workspaces/bv-review-only-negative
+
+Case JSON:
+{
+  "id": "bv-review-only-negative",
+  "workflow": "build-validate",
+  "mode": "skill",
+  "title": "Pure review request should not trigger validation-first behavior",
+  "goal": "Confirm build-validate is not treated as the default response to a review-only task.",
+  "setup": "User asks for a code review with no request to run checks and no implementation work in scope.",
+  "prompt": "Review this diff for bugs and risks only.",
+  "expected_output_shape": [
+    "No validation-first response.",
+    "No automatic validation report block unless separately requested."
+  ],
+  "expected_safety_behavior": [
+    "Must not run or claim validation as if it were the primary task."
+  ],
+  "expected_validation_behavior": [
+    "Validation discussion, if any, stays secondary."
+  ],
+  "pass_criteria": [
+    "The harness routes this away from build-validate as the main workflow."
+  ],
+  "fail_signals": [
+    "Starts with validation scope and commands instead of review findings."
+  ]
+}
+
+Behavior scale:
+- actual_trigger_behavior: "not_triggered", "secondary_only", "partial_trigger", or "primary_trigger"
+- outcome: "pass" when the workflow stays out of the task or remains clearly secondary; "partial" when it starts to overtake; "fail" when it becomes the primary response.
+
+Instructions:
+- Judge whether the named workflow or specialist would wrongly take over this task.
+- Do not fabricate repo inspection, file edits, or validation runs.
+- If the best behavior is to route elsewhere, reflect that with actual_trigger_behavior=not_triggered or secondary_only.
+- Record only unexpected workflow behavior in unexpected_subagents and unexpected_validation.
+- unexpected_subagents should list wrongly-triggered specialists or explorers such as pr-explorer, reviewer, security-auditor, or interop-auditor.
+- unexpected_validation should list only validation-first or implementation-first behavior that should not have happened, such as validation:first, validation:commands-listed, implementation:planned, findings:first.
+- fail_signals should list only clear false-trigger failures such as workflow:hijacked-task, shape:implementation-plan, shape:review-orchestration, specialist:interop-primary.
+
+Required output fields:
+- schema_version: use "1"
+- case_id: use "bv-review-only-negative"
+- workflow: use "build-validate"
+- expected_should_trigger: use false
+- actual_trigger_behavior: one of "not_triggered", "secondary_only", "partial_trigger", "primary_trigger"
+- outcome: "pass", "partial", or "fail"
+- unexpected_subagents: short strings only
+- unexpected_validation: short strings only
+- fail_signals: short strings only
+- notes: short plain-English explanation
+- rubric: use booleans or nulls for trigger_match, output_shape_ok, task_focus_ok, safety_ok

@@ -1,0 +1,130 @@
+You are running one local Codex eval harness false-trigger case.
+The named workflow below should not trigger as the primary path for the task.
+Return only one JSON object that matches the provided false-trigger output schema.
+Do not wrap the JSON in markdown fences.
+Use short stable tokens in unexpected_subagents, unexpected_validation, and fail_signals.
+
+case_id: sa-low-risk-ui-negative
+workflow_under_test: security-auditor
+expected_should_trigger: false
+fixture_ref: tiny-review-surface
+workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/sa-low-risk-ui-negative
+
+Case JSON:
+{
+  "id": "sa-low-risk-ui-negative",
+  "workflow": "security-auditor",
+  "mode": "subagent",
+  "title": "Low-risk UI-only change should not trigger security audit",
+  "goal": "Confirm security-auditor is not used where the changed surface is clearly non-security-sensitive.",
+  "setup": "Use fixture `tiny-review-surface` and the frozen diff `ui_only.patch`. The diff changes only presentational copy and layout classes, with no trust boundary, process, parser, path, secret, config, or auth effect.",
+  "prompt": "Review this purely presentational UI diff.",
+  "expected_subagents": [],
+  "forbidden_subagents": [
+    "security-auditor"
+  ],
+  "expected_output_shape": [
+    "No security-audit-specific output."
+  ],
+  "expected_safety_behavior": [
+    "Should not be chosen as the primary specialist."
+  ],
+  "expected_validation_behavior": [
+    "No security-specific validation expectations are needed."
+  ],
+  "pass_criteria": [
+    "The harness routes this away from security-auditor."
+  ],
+  "fail_signals": [
+    "Invents security concerns unrelated to the changed surface."
+  ]
+}
+
+Behavior scale:
+- actual_trigger_behavior: "not_triggered", "secondary_only", "partial_trigger", or "primary_trigger"
+- outcome: "pass" when the workflow stays out of the task or remains clearly secondary; "partial" when it starts to overtake; "fail" when it becomes the primary response.
+
+Fixture task file: UI_TASK.md
+# tiny-review-surface UI variant
+
+Treat `ui_only.patch` as the full diff under review.
+
+This variant is used by `security-auditor` false-trigger evaluation.
+
+What the diff intentionally includes:
+
+- presentational copy changes
+- layout class renames
+- visual spacing tweaks
+
+What the diff intentionally does not include:
+
+- parsing or deserialization
+- path handling
+- subprocess execution
+- secrets or credentials
+- auth or privilege changes
+- configuration or deployment behavior
+
+What a strong run should do:
+
+- recognize that the changed surface is purely presentational
+- keep `security-auditor` out of the task or clearly secondary
+- avoid inventing trust-boundary, injection, path, or secret-handling risks
+
+Patch file: ui_only.patch
+diff --git a/src/dashboard/HeroPanel.tsx b/src/dashboard/HeroPanel.tsx
+index 1111111..2222222 100644
+--- a/src/dashboard/HeroPanel.tsx
++++ b/src/dashboard/HeroPanel.tsx
+@@ -1,9 +1,9 @@
+ export function HeroPanel() {
+   return (
+-    <section className="hero hero--compact">
+-      <h1>Usage</h1>
+-      <p className="hero__eyebrow">Daily activity and exports</p>
+-      <button className="btn btn--primary">Open report</button>
++    <section className="hero hero--spacious">
++      <h1>Workspace overview</h1>
++      <p className="hero__eyebrow hero__eyebrow--muted">Daily activity and recent exports</p>
++      <button className="btn btn--primary btn--wide">View report</button>
+     </section>
+   );
+ }
+diff --git a/src/dashboard/hero.css b/src/dashboard/hero.css
+index 3333333..4444444 100644
+--- a/src/dashboard/hero.css
++++ b/src/dashboard/hero.css
+@@ -1,5 +1,7 @@
+-.hero--compact { gap: 0.5rem; }
++.hero--spacious { gap: 1rem; }
+ .hero__eyebrow { font-size: 0.875rem; }
++.hero__eyebrow--muted { color: var(--text-muted); }
+ .btn--primary { font-weight: 600; }
++.btn--wide { min-width: 12rem; }
+
+Instructions:
+- Treat the patch text above as the only changed surface under evaluation.
+- Read the task file and patch before answering.
+- Do not modify files in the workspace.
+- Judge whether the named workflow or specialist should stay out of this changed surface: security-auditor.
+- If the changed surface does not justify that workflow or specialist, prefer actual_trigger_behavior=not_triggered.
+- Do not invent specialist-specific concerns that are unsupported by the patch.
+- Record only unexpected workflow behavior in unexpected_subagents and unexpected_validation.
+- unexpected_subagents should list wrongly-triggered specialists or explorers such as pr-explorer, reviewer, security-auditor, or interop-auditor.
+- unexpected_validation should list only validation-first or implementation-first behavior that should not have happened, such as validation:first, validation:commands-listed, implementation:planned, findings:first.
+- fail_signals should list only clear false-trigger failures such as workflow:hijacked-task, shape:implementation-plan, shape:review-orchestration, specialist:interop-primary, or specialist:security-primary.
+
+Required output fields:
+- schema_version: use "1"
+- case_id: use "sa-low-risk-ui-negative"
+- workflow: use "security-auditor"
+- fixture_ref: use "tiny-review-surface"
+- expected_should_trigger: use false
+- actual_trigger_behavior: one of "not_triggered", "secondary_only", "partial_trigger", "primary_trigger"
+- outcome: "pass", "partial", or "fail"
+- unexpected_subagents: short strings only
+- unexpected_validation: short strings only
+- fail_signals: short strings only
+- notes: short plain-English explanation
+- rubric: use booleans or nulls for trigger_match, output_shape_ok, task_focus_ok, safety_ok

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1",
+  "fixtures": [
+    {
+      "id": "tiny-python-service",
+      "kind": "repo+patch",
+      "path": "fixtures/tiny-python-service",
+      "workflows": [
+        "build-validate",
+        "orchestrated-implementation"
+      ],
+      "entrypoints": [
+        "TASK.md",
+        "api_breaking_change.patch"
+      ],
+      "description": "Tiny Python package with a canonical pytest path, one frozen API-breaking patch, and one small bugfix scenario."
+    },
+    {
+      "id": "tiny-review-surface",
+      "kind": "patch",
+      "path": "fixtures/tiny-review-surface",
+      "workflows": [
+        "orchestrated-review",
+        "reviewer",
+        "security-auditor"
+      ],
+      "entrypoints": [
+        "TASK.md",
+        "review_surface.patch",
+        "UI_TASK.md",
+        "ui_only.patch"
+      ],
+      "description": "Frozen patch fixture with one security-heavy review diff and one separate UI-only diff for specialist false-trigger checks."
+    },
+    {
+      "id": "tiny-ffi-boundary",
+      "kind": "patch",
+      "path": "fixtures/tiny-ffi-boundary",
+      "workflows": [
+        "interop-auditor"
+      ],
+      "entrypoints": [
+        "TASK.md",
+        "ffi_boundary.patch"
+      ],
+      "description": "Frozen C/C++ boundary diff with ownership, lifetime, allocator, and callback-threading hazards."
+    },
+    {
+      "id": "tiny-workflow-easy",
+      "kind": "repo+patch",
+      "path": "fixtures/tiny-workflow-easy",
+      "workflows": [
+        "workflow-realism"
+      ],
+      "entrypoints": [
+        "TASK.md"
+      ],
+      "description": "Tiny one-module Python repo for the EASY workflow-realism tier, focused on a contained bug fix and narrow validation."
+    },
+    {
+      "id": "tiny-workflow-medium",
+      "kind": "repo+patch",
+      "path": "fixtures/tiny-workflow-medium",
+      "workflows": [
+        "workflow-realism"
+      ],
+      "entrypoints": [
+        "TASK.md"
+      ],
+      "description": "Tiny multi-module Python repo for the MEDIUM workflow-realism tier, covering an API and CLI contract change with broader validation."
+    },
+    {
+      "id": "tiny-workflow-hard",
+      "kind": "repo+patch",
+      "path": "fixtures/tiny-workflow-hard",
+      "workflows": [
+        "workflow-realism"
+      ],
+      "entrypoints": [
+        "TASK.md"
+      ],
+      "description": "Tiny parser and subprocess hardening repo for the HARD workflow-realism tier, including a required post-change security audit."
+    }
+  ]
+}

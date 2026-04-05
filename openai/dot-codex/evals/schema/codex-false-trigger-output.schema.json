@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.codex/evals/codex-false-trigger-output.schema.json",
+  "title": "Codex Exec False-Trigger Eval Final Message",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "case_id",
+    "workflow",
+    "expected_should_trigger",
+    "actual_trigger_behavior",
+    "outcome",
+    "unexpected_subagents",
+    "unexpected_validation",
+    "fail_signals",
+    "notes",
+    "rubric"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "workflow": {
+      "type": "string"
+    },
+    "fixture_ref": {
+      "type": "string"
+    },
+    "expected_should_trigger": {
+      "type": "boolean"
+    },
+    "actual_trigger_behavior": {
+      "type": "string",
+      "enum": [
+        "not_triggered",
+        "secondary_only",
+        "partial_trigger",
+        "primary_trigger"
+      ]
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "partial",
+        "fail"
+      ]
+    },
+    "unexpected_subagents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unexpected_validation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fail_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "rubric": {
+      "type": "object",
+      "required": [
+        "trigger_match",
+        "output_shape_ok",
+        "task_focus_ok",
+        "safety_ok"
+      ],
+      "properties": {
+        "trigger_match": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "output_shape_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "task_focus_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "safety_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

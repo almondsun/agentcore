@@ -1,0 +1,22 @@
+diff --git a/src/tiny_service/api.py b/src/tiny_service/api.py
+index 1111111..2222222 100644
+--- a/src/tiny_service/api.py
++++ b/src/tiny_service/api.py
+@@ -1,6 +1,6 @@
+ from .normalize import normalize_user_id
+ 
+-def lookup_user(user_id: str) -> str:
++def lookup_user(user_id: str) -> dict[str, str]:
+     normalized = normalize_user_id(user_id)
+-    return f"user:{normalized}"
++    return {"user_id": normalized}
+diff --git a/tests/test_api.py b/tests/test_api.py
+index 3333333..4444444 100644
+--- a/tests/test_api.py
++++ b/tests/test_api.py
+@@ -1,5 +1,5 @@
+ from tiny_service.api import lookup_user
+ 
+ def test_lookup_user_normalizes_case_and_space() -> None:
+-    assert lookup_user(" Alice ") == "user:alice"
++    assert lookup_user(" Alice ")["user_id"] == "alice"

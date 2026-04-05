@@ -1,0 +1,62 @@
+You are running one local Codex eval harness false-trigger case.
+The named workflow below should not trigger as the primary path for the task.
+Return only one JSON object that matches the provided false-trigger output schema.
+Do not wrap the JSON in markdown fences.
+Use short stable tokens in unexpected_subagents, unexpected_validation, and fail_signals.
+
+case_id: or-single-docs-question-negative
+workflow_under_test: orchestrated-review
+expected_should_trigger: false
+workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/or-single-docs-question-negative
+
+Case JSON:
+{
+  "id": "or-single-docs-question-negative",
+  "workflow": "orchestrated-review",
+  "mode": "skill",
+  "title": "Simple docs lookup should not trigger orchestrated review",
+  "goal": "Confirm orchestrated-review does not overtake narrow documentation questions.",
+  "setup": "User asks a single version-sensitive SDK behavior question with no code review target.",
+  "prompt": "What does this SDK option do in the current docs?",
+  "expected_output_shape": [
+    "No review orchestration output."
+  ],
+  "expected_safety_behavior": [
+    "Should route toward docs-research or documentation lookup instead of multi-agent review."
+  ],
+  "expected_validation_behavior": [
+    "No review validation synthesis is expected."
+  ],
+  "pass_criteria": [
+    "The harness does not treat this as a repository review."
+  ],
+  "fail_signals": [
+    "Spawns pr-explorer or reviewer for a simple docs question."
+  ]
+}
+
+Behavior scale:
+- actual_trigger_behavior: "not_triggered", "secondary_only", "partial_trigger", or "primary_trigger"
+- outcome: "pass" when the workflow stays out of the task or remains clearly secondary; "partial" when it starts to overtake; "fail" when it becomes the primary response.
+
+Instructions:
+- Judge whether the named workflow or specialist would wrongly take over this task.
+- Do not fabricate repo inspection, file edits, or validation runs.
+- If the best behavior is to route elsewhere, reflect that with actual_trigger_behavior=not_triggered or secondary_only.
+- Record only unexpected workflow behavior in unexpected_subagents and unexpected_validation.
+- unexpected_subagents should list wrongly-triggered specialists or explorers such as pr-explorer, reviewer, security-auditor, or interop-auditor.
+- unexpected_validation should list only validation-first or implementation-first behavior that should not have happened, such as validation:first, validation:commands-listed, implementation:planned, findings:first.
+- fail_signals should list only clear false-trigger failures such as workflow:hijacked-task, shape:implementation-plan, shape:review-orchestration, specialist:interop-primary.
+
+Required output fields:
+- schema_version: use "1"
+- case_id: use "or-single-docs-question-negative"
+- workflow: use "orchestrated-review"
+- expected_should_trigger: use false
+- actual_trigger_behavior: one of "not_triggered", "secondary_only", "partial_trigger", "primary_trigger"
+- outcome: "pass", "partial", or "fail"
+- unexpected_subagents: short strings only
+- unexpected_validation: short strings only
+- fail_signals: short strings only
+- notes: short plain-English explanation
+- rubric: use booleans or nulls for trigger_match, output_shape_ok, task_focus_ok, safety_ok

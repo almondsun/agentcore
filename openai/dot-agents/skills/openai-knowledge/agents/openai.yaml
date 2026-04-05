@@ -1,0 +1,15 @@
+interface:
+  display_name: "OpenAI Knowledge"
+  short_description: "Use official OpenAI docs before answering"
+  default_prompt: "Use $openai-knowledge to answer this OpenAI platform question from official docs first."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "openaiDeveloperDocs"
+      description: "Official OpenAI developer documentation MCP server"
+      transport: "streamable_http"
+      url: "https://developers.openai.com/mcp"
+
+policy:
+  allow_implicit_invocation: true

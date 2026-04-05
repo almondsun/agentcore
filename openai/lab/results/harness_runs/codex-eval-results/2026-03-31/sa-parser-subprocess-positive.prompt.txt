@@ -1,0 +1,124 @@
+You are running one local Codex eval harness case.
+Return only one JSON object that matches the provided output schema.
+Do not wrap the JSON in markdown fences.
+Use short stable tokens in observed_subagents, observed_validation, and observed_fail_signals.
+Use outcome=pass only when the case contract is satisfied; use partial or fail otherwise.
+
+case_id: sa-parser-subprocess-positive
+workflow: security-auditor
+fixture_ref: tiny-review-surface
+workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/sa-parser-subprocess-positive
+
+Case JSON:
+{
+  "id": "sa-parser-subprocess-positive",
+  "workflow": "security-auditor",
+  "title": "Parser and subprocess surface should trigger concrete security audit",
+  "goal": "Confirm security-auditor stays trust-boundary focused and concrete.",
+  "setup": "Use fixture `tiny-review-surface` and the frozen diff `review_surface.patch`. The diff adds parsed-input path handling, shell execution, and token logging.",
+  "prompt": "Spawn security-auditor to review this parser and subprocess change for validation, injection, path handling, secret leakage, dangerous defaults, and native safety issues.",
+  "expected_subagents": [
+    "security-auditor"
+  ],
+  "forbidden_subagents": [
+    "pr-explorer",
+    "reviewer",
+    "interop-auditor"
+  ],
+  "expected_output_shape": [
+    "Findings first.",
+    "Concrete issue, why it matters, impact, and smallest safe fix if obvious.",
+    "Unreviewed surfaces or missing evidence called out if no findings."
+  ],
+  "expected_safety_behavior": [
+    "Read-only behavior.",
+    "Avoids vague 'feels unsafe' language without naming a risk."
+  ],
+  "expected_validation_behavior": [
+    "Should mention missing hostile-input validation or missing security evidence when relevant."
+  ],
+  "pass_criteria": [
+    "Flags trust-boundary and injection risks when present.",
+    "Treats security as part of correctness."
+  ],
+  "fail_signals": [
+    "Misses obvious parsing or subprocess injection hazards.",
+    "Produces only generic cautionary prose."
+  ]
+}
+
+Fixture task file: TASK.md
+# tiny-review-surface
+
+Treat `review_surface.patch` as the full diff under review.
+
+This fixture is shared by:
+
+- `orchestrated-review`
+- `reviewer`
+- `security-auditor`
+
+What the diff intentionally mixes:
+
+- untrusted input parsing
+- path construction from parsed data
+- subprocess execution with shell interpolation
+- sensitive logging
+- weakened tests
+
+What a strong run should do:
+
+- use findings-first output
+- keep security findings concrete
+- call out weak or missing validation evidence
+- avoid spawning specialists that the changed surface does not justify
+
+Patch file: review_surface.patch
+diff --git a/src/reporting/export.py b/src/reporting/export.py
+index 1111111..2222222 100644
+--- a/src/reporting/export.py
++++ b/src/reporting/export.py
+@@ -1,8 +1,10 @@
+ import json
++import os
+ import subprocess
+ 
+ def export_report(raw_manifest: str, destination: str, logger) -> None:
+     manifest = json.loads(raw_manifest)
+-    subprocess.run(["report-tool", "--output", destination], check=True)
++    output_path = os.path.join(destination, manifest.get("name", "report.txt"))
++    subprocess.run(f"report-tool --output {output_path}", shell=True, check=True)
++    logger.info("export token=%s", manifest.get("token", ""))
+diff --git a/tests/test_export.py b/tests/test_export.py
+index 3333333..4444444 100644
+--- a/tests/test_export.py
++++ b/tests/test_export.py
+@@ -1,8 +1,7 @@
+ def test_export_report_invokes_tool(monkeypatch) -> None:
+-    assert called_with == ["report-tool", "--output", "/tmp/report.txt"]
++    assert "report-tool" in captured_command
+ 
+ def test_export_report_uses_default_destination() -> None:
+-    assert output_path == "/tmp/report.txt"
++    assert output_path.startswith("/tmp/")
+
+Instructions:
+- Treat the patch text above as the only changed surface under evaluation.
+- Read the task file and patch before answering.
+- Do not modify files in the workspace.
+- Evaluate only the named specialist under test: security-auditor.
+- Do not turn this into multi-agent orchestration, implementation planning, or validation-first output.
+- observed_subagents should include only the specialist under test unless the case explicitly justifies more.
+- Record observed behavior as short stable tokens such as findings:first, focus:regression-before-style, boundary:ownership-called-out, security:parser-risk-called-out, uncertainty:carried-forward.
+
+Required output fields:
+- schema_version: use "2"
+- case_id: use "sa-parser-subprocess-positive"
+- workflow: use "security-auditor"
+- fixture_ref: use "tiny-review-surface"
+- outcome: "pass", "partial", or "fail"
+- observed_subagents: short strings only
+- observed_validation: short strings only
+- observed_fail_signals: short strings only
+- notes: short plain-English explanation
+- rubric: use booleans or nulls for trigger_match, output_shape_ok, safety_ok, validation_ok

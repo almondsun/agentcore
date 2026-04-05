@@ -1,0 +1,2 @@
+prefix_rule(pattern=["gcc", "-std=c11"], decision="allow")
+prefix_rule(pattern=["g++", "-std=c++17"], decision="allow")

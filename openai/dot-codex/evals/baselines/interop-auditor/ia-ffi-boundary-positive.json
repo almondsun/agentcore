@@ -1,0 +1,24 @@
+{
+  "schema_version": "2",
+  "case_id": "ia-ffi-boundary-positive",
+  "workflow": "interop-auditor",
+  "fixture_ref": "tiny-ffi-boundary",
+  "run_timestamp": "2026-03-31T00:00:00Z",
+  "outcome": "pass",
+  "observed_subagents": [
+    "interop-auditor"
+  ],
+  "observed_validation": [
+    "boundary:ownership-called-out",
+    "boundary:lifetime-called-out",
+    "boundary:threading-called-out"
+  ],
+  "observed_fail_signals": [],
+  "notes": "Baseline expects ownership, allocator, and callback-threading issues to be surfaced immediately.",
+  "rubric": {
+    "trigger_match": true,
+    "output_shape_ok": true,
+    "safety_ok": true,
+    "validation_ok": true
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "2",
+  "case_id": "rv-regression-review-positive",
+  "workflow": "reviewer",
+  "fixture_ref": "tiny-review-surface",
+  "run_timestamp": "2026-03-31T00:00:00Z",
+  "outcome": "pass",
+  "observed_subagents": [
+    "reviewer"
+  ],
+  "observed_validation": [
+    "findings:first",
+    "coverage:missing-tests-called-out",
+    "focus:regression-before-style"
+  ],
+  "observed_fail_signals": [],
+  "notes": "Baseline expects regression-focused findings and weak-test coverage callouts.",
+  "rubric": {
+    "trigger_match": true,
+    "output_shape_ok": true,
+    "safety_ok": true,
+    "validation_ok": true
+  }
+}
