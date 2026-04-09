@@ -36,7 +36,7 @@ Do not use this workspace as a generic scratch directory.
 - examples of the expected default in those durable repos include `python3 -B -m unittest ...`, `python3 -B -m pytest ...`, and `python3 -B tests/contracts/validate_contract_artifacts.py`
 - treat plain `python3 ...` validation in those durable repos as the exception, not the norm, and only use it when there is a concrete repo-specific reason
 - if Python validation in those durable repos still creates transient runtime artifacts such as `__pycache__/` directories or `.pyc` files, remove them before final closeout
-- treat this hygiene rule as specific to durable `codexlab` repos, not to disposable scratch work in `/home/marti/code/tmp`
+- treat this hygiene rule as specific to durable `lab` repos, not to disposable scratch work in `~/code/tmp`
 
 ## Definition of done for this workspace
 
@@ -47,4 +47,4 @@ A new asset belongs here only if it is durable enough to matter later:
 - a scorecard or comparison worth referencing
 - a note that changes future operating decisions
 
-Temporary experiments still belong in `/home/marti/code/tmp`.
+Temporary experiments still belong in `~/code/tmp`.

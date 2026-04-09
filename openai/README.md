@@ -1,20 +1,20 @@
-# codex
+# openai
 
-This subtree preserves the Codex-specific part of the broader `agents-workbench` repository.
+This subtree preserves the OpenAI Codex-specific part of the broader `agentcore` repository.
 
 It combines three distinct concerns that are worth keeping durable:
 
 - `dot-codex/`: sanitized mirror of the durable, human-managed parts of `~/.codex`
 - `dot-agents/`: custom user-managed Codex skills from `~/.agents`
-- `codexlab/`: durable workspace for evaluation, tuning, and real-task verification
+- `lab/`: durable workspace for evaluation, tuning, and real-task verification
 
 ## Subtree map
 
 ```text
-codex/
+openai/
 ├── dot-codex/
 ├── dot-agents/
-└── codexlab/
+└── lab/
 ```
 
 ## dot-codex
@@ -44,9 +44,9 @@ Treat it as human-managed content:
 - document the purpose of each skill clearly
 - avoid storing generated artifacts here
 
-## codexlab
+## lab
 
-`codexlab/` is the durable task-and-evaluation workspace.
+`lab/` is the durable task-and-evaluation workspace.
 Use it for:
 
 - reusable eval assets
@@ -54,7 +54,7 @@ Use it for:
 - durable notes
 - saved results and snapshots that are intentionally kept
 
-Do not use `codexlab/` as a generic scratch directory.
+Do not use `lab/` as a generic scratch directory.
 Scratch work still belongs outside this repository until it becomes durable enough to preserve.
 
 ## Practical migration guidance

@@ -1,6 +1,6 @@
-# codexlab
+# lab
 
-`codexlab` is the durable workspace for Codex evaluation, tuning, and real-task verification.
+`lab` is the durable workspace for Codex evaluation, tuning, and real-task verification.
 
 Use this directory for:
 
@@ -11,7 +11,7 @@ Use this directory for:
 - snapshots or artifacts worth keeping beyond a disposable session
 
 Do not use this directory as a generic scratch space.
-Keep disposable experiments in `/home/marti/code/tmp`.
+Keep disposable experiments in `~/code/tmp`.
 
 ## Structure
 
@@ -25,11 +25,11 @@ Keep disposable experiments in `/home/marti/code/tmp`.
 
 Use this repeatable loop for future work:
 
-1. Start in `/home/marti/code/tmp` for disposable exploration, scratch repos, and one-off experiments.
-2. Promote a task into `codexlab` only when it is durable enough to rerun, compare, or reference later.
+1. Start in `~/code/tmp` for disposable exploration, scratch repos, and one-off experiments.
+2. Promote a task into `lab` only when it is durable enough to rerun, compare, or reference later.
 3. Keep the active repo or sandbox in `live_tasks/` or `evals/`, never in `results/` or `snapshots/`.
 4. Save durable outputs in `results/`, preserve important prompt/response evidence in `snapshots/`, and record only durable lessons or decisions in `notes/`.
-5. When a task stops being scratch and starts affecting future evaluation practice, move the smallest useful artifact set into `codexlab`.
+5. When a task stops being scratch and starts affecting future evaluation practice, move the smallest useful artifact set into `lab`.
 
 Directory boundaries:
 
@@ -40,7 +40,7 @@ Directory boundaries:
 
 Promotion rule:
 
-- promote from `/home/marti/code/tmp` when the artifact is representative, reusable, or evidence-bearing
+- promote from `~/code/tmp` when the artifact is representative, reusable, or evidence-bearing
 - keep it in `tmp` when it is just setup churn, temporary debugging, or something you would not reopen later
 - if you are preserving a real task, preserve the repo in `live_tasks/`, not a zip or result dump in `results/`
 - if you are preserving a run, keep the output in `results/` and the prompt/response evidence in `snapshots/`
