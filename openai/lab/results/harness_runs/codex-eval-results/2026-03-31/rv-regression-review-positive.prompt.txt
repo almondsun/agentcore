@@ -7,7 +7,7 @@ Use outcome=pass only when the case contract is satisfied; use partial or fail o
 case_id: rv-regression-review-positive
 workflow: reviewer
 fixture_ref: tiny-review-surface
-workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/rv-regression-review-positive
+workspace_root: <results-root>/2026-03-31/workspaces/rv-regression-review-positive
 
 Case JSON:
 {

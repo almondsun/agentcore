@@ -26,6 +26,7 @@ venv/
 **/*.sqlite-wal
 
 # Sensitive or local-only files
+**/.codex
 **/auth.json
 **/history.jsonl
 **/models_cache.json

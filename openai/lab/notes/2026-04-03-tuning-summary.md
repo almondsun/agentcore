@@ -14,20 +14,20 @@ The current practical rating is approximately `8/10` overall:
 
 - live task repo: `../live_tasks/vendor_ingest_hardening/`
 - harness archive: `../results/harness_runs/codex-eval-results/`
-- Codex environment map: `/home/marti/.codex/README.md`
-- custom skills map: `/home/marti/.agents/README.md`
+- Codex environment map: `../../dot-codex/README.md`
+- custom skills map: `../../dot-agents/README.md`
 
 ## Important operating decisions
 
-- keep `/home/marti/code/tmp` as disposable scratch
-- keep durable Codex evaluation and tuning work in `/home/marti/code/codexlab`
+- keep disposable scratch outside this repository
+- keep durable Codex evaluation and tuning work in `openai/lab/`
 - treat unresolved security audit findings as open work, not commentary
 - use the tiny harness as a regression tool, not as the main optimization target
 - use real tasks as the primary readiness benchmark
 
 ## What was intentionally not migrated
 
-- `homeworks/` remains in `/home/marti/code/tmp/` because it is real coursework, not part of the Codex testing core by default
+- `homeworks/` remains outside this repository because it is real coursework, not part of the Codex testing core by default
 
 ## Next recommended use
 

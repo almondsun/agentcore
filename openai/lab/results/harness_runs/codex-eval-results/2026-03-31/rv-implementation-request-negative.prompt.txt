@@ -7,7 +7,7 @@ Use short stable tokens in unexpected_subagents, unexpected_validation, and fail
 case_id: rv-implementation-request-negative
 workflow_under_test: reviewer
 expected_should_trigger: false
-workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/rv-implementation-request-negative
+workspace_root: <results-root>/2026-03-31/workspaces/rv-implementation-request-negative
 
 Case JSON:
 {

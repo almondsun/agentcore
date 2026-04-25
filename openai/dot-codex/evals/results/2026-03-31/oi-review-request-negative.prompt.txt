@@ -7,7 +7,7 @@ Use short stable tokens in unexpected_subagents, unexpected_validation, and fail
 case_id: oi-review-request-negative
 workflow_under_test: orchestrated-implementation
 expected_should_trigger: false
-workspace_root: /home/marti/.codex/evals/results/2026-03-31/workspaces/oi-review-request-negative
+workspace_root: <evals-root>/results/2026-03-31/workspaces/oi-review-request-negative
 
 Case JSON:
 {

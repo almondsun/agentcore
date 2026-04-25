@@ -24,18 +24,18 @@ If your environment uses firewall, proxy, DNS filtering, container policy, or we
 
 ### 1.2 Python validation toolchain
 
-The harness uses `/usr/bin/python3` in the current environment. `pytest` must be installed in that same interpreter environment.
+The harness uses the `python3` selected by the caller's environment. `pytest` must be installed in that same interpreter environment.
 
 Verify the interpreter:
 
 ```bash
-/usr/bin/python3 --version
+python3 --version
 ```
 
 Install `pytest` into that interpreter environment using your normal package-management policy. Example:
 
 ```bash
-/usr/bin/python3 -m pip install pytest
+python3 -m pip install pytest
 ```
 
 If your environment requires `pip3`:
@@ -58,7 +58,7 @@ codex --version
 
 ### 2.2 Verify Codex backend connectivity
 
-Run from `/home/marti/code/tmp`:
+Run from any writable working directory:
 
 ```bash
 codex exec --skip-git-repo-check --ephemeral --color never --sandbox read-only -c 'approval_policy="never"' -
@@ -80,15 +80,15 @@ If it hangs, times out, or shows websocket / DNS / `Operation not permitted` err
 ### 2.3 Verify pytest in the harness interpreter
 
 ```bash
-/usr/bin/python3 -m pytest --version
+python3 -m pytest --version
 ```
 
 ### 2.4 Verify final fixture readiness
 
 ```bash
-/usr/bin/python3 -m pytest --collect-only -q /home/marti/.codex/evals/fixtures/tiny-workflow-easy
-/usr/bin/python3 -m pytest --collect-only -q /home/marti/.codex/evals/fixtures/tiny-workflow-medium
-/usr/bin/python3 -m pytest --collect-only -q /home/marti/.codex/evals/fixtures/tiny-workflow-hard
+python3 -m pytest --collect-only -q fixtures/tiny-workflow-easy
+python3 -m pytest --collect-only -q fixtures/tiny-workflow-medium
+python3 -m pytest --collect-only -q fixtures/tiny-workflow-hard
 ```
 
 ## 3. Codex-Automatable Steps
@@ -96,8 +96,8 @@ If it hangs, times out, or shows websocket / DNS / `Operation not permitted` err
 After the environment is fixed, Codex can run:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/live_run_preflight.py --results-dir /tmp/codex-final-eval
-python3 /home/marti/.codex/evals/scripts/run_batch.py wr-easy-local-bugfix wr-medium-api-contract wr-hard-security-audit --date 2026-03-31 --results-dir /tmp/codex-final-eval --force
+python3 scripts/live_run_preflight.py --results-dir /tmp/codex-final-eval
+python3 scripts/run_batch.py wr-easy-local-bugfix wr-medium-api-contract wr-hard-security-audit --date 2026-03-31 --results-dir /tmp/codex-final-eval --force
 ```
 
 ## 4. Stop/Go Sequence
@@ -107,7 +107,7 @@ python3 /home/marti/.codex/evals/scripts/run_batch.py wr-easy-local-bugfix wr-me
 If this command fails:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/live_run_preflight.py --results-dir /tmp/codex-final-eval
+python3 scripts/live_run_preflight.py --results-dir /tmp/codex-final-eval
 ```
 
 do not run the final batch. Read the reported `blockers` and fix them first.
@@ -117,13 +117,12 @@ do not run the final batch. Read the reported `blockers` and fix them first.
 If the preflight returns `ok: true`, run:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py wr-easy-local-bugfix wr-medium-api-contract wr-hard-security-audit --date 2026-03-31 --results-dir /tmp/codex-final-eval --force
+python3 scripts/run_batch.py wr-easy-local-bugfix wr-medium-api-contract wr-hard-security-audit --date 2026-03-31 --results-dir /tmp/codex-final-eval --force
 ```
 
 ## 5. Recommended Command Sequence
 
 ```bash
-cd /home/marti/code/tmp
-python3 /home/marti/.codex/evals/scripts/live_run_preflight.py --results-dir /tmp/codex-final-eval
-python3 /home/marti/.codex/evals/scripts/run_batch.py wr-easy-local-bugfix wr-medium-api-contract wr-hard-security-audit --date 2026-03-31 --results-dir /tmp/codex-final-eval --force
+python3 scripts/live_run_preflight.py --results-dir /tmp/codex-final-eval
+python3 scripts/run_batch.py wr-easy-local-bugfix wr-medium-api-contract wr-hard-security-audit --date 2026-03-31 --results-dir /tmp/codex-final-eval --force
 ```

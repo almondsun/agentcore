@@ -183,7 +183,7 @@ def normalize_observed_validation(
             add("validation-skill:build-validate")
         if "validation-skill:build-validate" not in normalized and (
             "python -m pytest successfully" in notes_lower
-            or "ran /home/marti/.venvs/codex-evals/bin/python -m pytest successfully" in notes_lower
+            or "ran python -m pytest successfully" in notes_lower
             or "broader validation" in notes_lower
         ):
             add("validation-skill:build-validate")

@@ -7,7 +7,7 @@ Use outcome=pass only when the case contract is satisfied; use partial or fail o
 case_id: oi-bugfix-validate-positive
 workflow: orchestrated-implementation
 fixture_ref: tiny-python-service
-workspace_root: /home/marti/.codex/evals/results/2026-03-31/workspaces/oi-bugfix-validate-positive
+workspace_root: <evals-root>/results/2026-03-31/workspaces/oi-bugfix-validate-positive
 
 Case JSON:
 {

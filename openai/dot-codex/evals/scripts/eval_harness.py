@@ -22,7 +22,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-ROOT = Path("/home/marti/.codex/evals")
+ROOT = Path(__file__).resolve().parents[1]
 CASES_DIR = ROOT / "cases"
 FIXTURE_MANIFEST_PATH = ROOT / "fixtures" / "manifest.json"
 AUTOMATION_MANIFEST_PATH = ROOT / "automation" / "manifest.json"

@@ -7,7 +7,7 @@ Use outcome=pass only when the case contract is satisfied; use partial or fail o
 case_id: ia-ffi-boundary-positive
 workflow: interop-auditor
 fixture_ref: tiny-ffi-boundary
-workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/ia-ffi-boundary-positive
+workspace_root: <results-root>/2026-03-31/workspaces/ia-ffi-boundary-positive
 
 Case JSON:
 {

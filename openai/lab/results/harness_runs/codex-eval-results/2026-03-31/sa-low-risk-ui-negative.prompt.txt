@@ -8,7 +8,7 @@ case_id: sa-low-risk-ui-negative
 workflow_under_test: security-auditor
 expected_should_trigger: false
 fixture_ref: tiny-review-surface
-workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/sa-low-risk-ui-negative
+workspace_root: <results-root>/2026-03-31/workspaces/sa-low-risk-ui-negative
 
 Case JSON:
 {

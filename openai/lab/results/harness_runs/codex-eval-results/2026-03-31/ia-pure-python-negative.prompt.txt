@@ -7,7 +7,7 @@ Use short stable tokens in unexpected_subagents, unexpected_validation, and fail
 case_id: ia-pure-python-negative
 workflow_under_test: interop-auditor
 expected_should_trigger: false
-workspace_root: /home/marti/codex-eval-results/2026-03-31/workspaces/ia-pure-python-negative
+workspace_root: <results-root>/2026-03-31/workspaces/ia-pure-python-negative
 
 Case JSON:
 {

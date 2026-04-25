@@ -7,7 +7,7 @@ Use outcome=pass only when the case contract is satisfied; use partial or fail o
 case_id: or-current-diff-multi-angle-positive
 workflow: orchestrated-review
 fixture_ref: tiny-review-surface
-workspace_root: /home/marti/.codex/evals/results/2026-03-31/workspaces/or-current-diff-multi-angle-positive
+workspace_root: <evals-root>/results/2026-03-31/workspaces/or-current-diff-multi-angle-positive
 
 Case JSON:
 {

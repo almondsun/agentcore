@@ -26,14 +26,14 @@ Current custom skills include:
 
 The Codex environment is split intentionally:
 
-- `/home/marti/.codex/skills/.system` = system-provided skills
-- `/home/marti/.agents/skills` = custom/user-managed skills
+- `~/.codex/skills/.system` = system-provided skills
+- `~/.agents/skills` = custom/user-managed skills
 
 Use the system area for built-in capabilities and this directory for your own maintained skill set.
 
 For the broader Codex environment map, see:
 
-- `/home/marti/.codex/README.md`
+- `~/.codex/README.md`
 
 ## Maintenance guidance
 

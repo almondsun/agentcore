@@ -4,7 +4,7 @@ Short durable starter template for a new live task.
 
 ## Why this task exists
 
-State why this repo or sandbox is worth keeping in `codexlab`.
+State why this repo or sandbox is worth keeping in `openai/lab/live_tasks/`.
 
 ## What it is meant to prove
 

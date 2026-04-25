@@ -7,7 +7,7 @@ Use short stable tokens in unexpected_subagents, unexpected_validation, and fail
 case_id: bv-review-only-negative
 workflow_under_test: build-validate
 expected_should_trigger: false
-workspace_root: /home/marti/.codex/evals/results/2026-03-31/workspaces/bv-review-only-negative
+workspace_root: <evals-root>/results/2026-03-31/workspaces/bv-review-only-negative
 
 Case JSON:
 {

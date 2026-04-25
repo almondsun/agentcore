@@ -17,4 +17,4 @@ What does not belong here:
 - prompts, transcripts, or copied final responses unless they are part of the task fixture itself
 - scratch repos that are not yet worth keeping
 
-Promote from `/home/marti/code/tmp` into `live_tasks/` when the task is representative enough that you expect to rerun it, compare future Codex behavior against it, or cite it in later notes.
+Promote from external scratch space into `live_tasks/` when the task is representative enough that you expect to rerun it, compare future Codex behavior against it, or cite it in later notes.

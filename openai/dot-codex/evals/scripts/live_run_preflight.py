@@ -105,7 +105,7 @@ def check_codex_backend(codex_bin: str) -> dict[str, object]:
     try:
         probe = subprocess.run(
             command,
-            cwd="/home/marti/code/tmp",
+            cwd=Path.cwd(),
             input="Return exactly the word ok.\n",
             text=True,
             capture_output=True,

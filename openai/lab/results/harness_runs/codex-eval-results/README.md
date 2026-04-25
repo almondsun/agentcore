@@ -2,8 +2,8 @@
 
 This directory is a migrated archive from an earlier results location:
 
-- original results root: `/home/marti/codex-eval-results`
-- current durable home: `/home/marti/code/codexlab/results/harness_runs/codex-eval-results`
+- original results root: `<results-root>`
+- current durable home: `<agentcore-root>/openai/lab/results/harness_runs/codex-eval-results`
 
 What is preserved here:
 
@@ -13,6 +13,6 @@ What is preserved here:
 
 Important caveats:
 
-- the archived JSON files still record the original `results_dir` and related absolute paths from `/home/marti/codex-eval-results`
+- the archived JSON files still record the original `results_dir` and related absolute paths from `<results-root>`
 - the archived runs were dry-run staging outputs, not full Codex execution transcripts
-- this directory should be treated as preserved historical evidence, not as proof that the original runs were re-executed from within `codexlab`
+- this directory should be treated as preserved historical evidence, not as proof that the original runs were re-executed from within `openai/lab/`

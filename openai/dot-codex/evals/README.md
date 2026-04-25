@@ -153,7 +153,7 @@ Each case captures:
 - pass criteria
 - fail signals
 
-The authoritative schema is in [`schema/eval-case.schema.json`](/home/marti/.codex/evals/schema/eval-case.schema.json).
+The authoritative schema is in [`schema/eval-case.schema.json`](schema/eval-case.schema.json).
 
 ## Fixture Convention
 
@@ -164,11 +164,11 @@ Use the lightest fixture that still makes the workflow repeatable:
 - frozen patch only for review or audit workflows
 - tiny repo plus one patch when implementation or validation context matters
 
-The fixture catalog lives in [`fixtures/manifest.json`](/home/marti/.codex/evals/fixtures/manifest.json).
+The fixture catalog lives in [`fixtures/manifest.json`](fixtures/manifest.json).
 
 ## Final Workflow-Realism Track
 
-The final track lives in [`cases/workflow-realism.json`](/home/marti/.codex/evals/cases/workflow-realism.json) and reuses the existing fixture, baseline, automation, result, and comparison flow.
+The final track lives in [`cases/workflow-realism.json`](cases/workflow-realism.json) and reuses the existing fixture, baseline, automation, result, and comparison flow.
 
 Tiers:
 
@@ -188,9 +188,9 @@ Keep source eval cases and baselines stable and treat `results/` as run history.
 
 By default the harness writes run artifacts under `~/.codex/evals/results/`. When the harness tree is read-only in your environment, use `--results-dir <path>` on `eval_harness.py scaffold-result`, `run_automated_case.py`, or `run_batch.py` to keep writable run history elsewhere without changing the case or baseline catalog.
 
-The authoritative result schema is in [`schema/result-record.schema.json`](/home/marti/.codex/evals/schema/result-record.schema.json).
+The authoritative result schema is in [`schema/result-record.schema.json`](schema/result-record.schema.json).
 
-Automated `codex exec` runs first target a slightly smaller structured-output contract and then the runner stamps `run_timestamp` and writes the final comparable result record. The structured final-message schema lives in [`schema/codex-run-output.schema.json`](/home/marti/.codex/evals/schema/codex-run-output.schema.json).
+Automated `codex exec` runs first target a slightly smaller structured-output contract and then the runner stamps `run_timestamp` and writes the final comparable result record. The structured final-message schema lives in [`schema/codex-run-output.schema.json`](schema/codex-run-output.schema.json).
 
 Use short stable tokens inside these arrays so baseline comparison stays inspectable:
 
@@ -231,9 +231,9 @@ Negative automation uses a dedicated false-trigger result shape stored in the sa
 
 - `~/.codex/evals/results/<date>/bv-review-only-negative.json`
 
-The authoritative false-trigger result schema is in [`schema/false-trigger-result.schema.json`](/home/marti/.codex/evals/schema/false-trigger-result.schema.json).
+The authoritative false-trigger result schema is in [`schema/false-trigger-result.schema.json`](schema/false-trigger-result.schema.json).
 
-Automated negative `codex exec` runs use a dedicated structured final-message schema in [`schema/codex-false-trigger-output.schema.json`](/home/marti/.codex/evals/schema/codex-false-trigger-output.schema.json).
+Automated negative `codex exec` runs use a dedicated structured final-message schema in [`schema/codex-false-trigger-output.schema.json`](schema/codex-false-trigger-output.schema.json).
 
 Key negative fields:
 
@@ -297,7 +297,7 @@ Supported negative cases now:
 - `rv-implementation-request-negative`
 - `sa-low-risk-ui-negative`
 
-Support is declared in [`automation/manifest.json`](/home/marti/.codex/evals/automation/manifest.json).
+Support is declared in [`automation/manifest.json`](automation/manifest.json).
 
 Each automated run:
 
@@ -326,55 +326,55 @@ The optional batch wrapper reuses the same single-case runner and, by default, c
 Validate the harness files, fixture references, baseline records, and automation manifest:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py validate
+python3 scripts/eval_harness.py validate
 ```
 
 List the available workflows and cases:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py list
+python3 scripts/eval_harness.py list
 ```
 
 Show one case in a runnable form:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py show bv-api-boundary-positive
+python3 scripts/eval_harness.py show bv-api-boundary-positive
 ```
 
 Print a blank result template for one case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py template bv-api-boundary-positive
+python3 scripts/eval_harness.py template bv-api-boundary-positive
 ```
 
 Print a blank false-trigger template for one negative case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py template bv-review-only-negative
+python3 scripts/eval_harness.py template bv-review-only-negative
 ```
 
 List the currently automated cases:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py list-auto
+python3 scripts/eval_harness.py list-auto
 ```
 
 List the currently automated negative false-trigger cases:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py list-auto-negative
+python3 scripts/eval_harness.py list-auto-negative
 ```
 
 Write a result scaffold directly into `results/`:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py scaffold-result bv-api-boundary-positive
+python3 scripts/eval_harness.py scaffold-result bv-api-boundary-positive
 ```
 
 Write a false-trigger scaffold for one negative case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/eval_harness.py scaffold-result bv-review-only-negative --date 2026-03-31
+python3 scripts/eval_harness.py scaffold-result bv-review-only-negative --date 2026-03-31
 ```
 
 The scaffold is intentionally incomplete. Fill in the observed fields before comparing it to a baseline.
@@ -382,141 +382,141 @@ The scaffold is intentionally incomplete. Fill in the observed fields before com
 Compare a new result to its stored baseline:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/compare_results.py \
-  --baseline /home/marti/.codex/evals/baselines/build-validate/bv-api-boundary-positive.json \
-  --result /home/marti/.codex/evals/results/2026-03-31/bv-api-boundary-positive.json
+python3 scripts/compare_results.py \
+  --baseline baselines/build-validate/bv-api-boundary-positive.json \
+  --result results/2026-03-31/bv-api-boundary-positive.json
 ```
 
 Run one supported automated case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py bv-api-boundary-positive --date 2026-03-31
+python3 scripts/run_automated_case.py bv-api-boundary-positive --date 2026-03-31
 ```
 
 Run the reviewer specialist-positive case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py rv-regression-review-positive --date 2026-03-31
+python3 scripts/run_automated_case.py rv-regression-review-positive --date 2026-03-31
 ```
 
 Run the interop-auditor specialist-positive case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py ia-ffi-boundary-positive --date 2026-03-31
+python3 scripts/run_automated_case.py ia-ffi-boundary-positive --date 2026-03-31
 ```
 
 Run the security-auditor specialist-positive case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py sa-parser-subprocess-positive --date 2026-03-31
+python3 scripts/run_automated_case.py sa-parser-subprocess-positive --date 2026-03-31
 ```
 
 Run one supported automated negative case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py bv-review-only-negative --date 2026-03-31
+python3 scripts/run_automated_case.py bv-review-only-negative --date 2026-03-31
 ```
 
 Run the remaining reviewer false-trigger case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py rv-implementation-request-negative --date 2026-03-31
+python3 scripts/run_automated_case.py rv-implementation-request-negative --date 2026-03-31
 ```
 
 Run the fixture-backed security false-trigger case:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py sa-low-risk-ui-negative --date 2026-03-31
+python3 scripts/run_automated_case.py sa-low-risk-ui-negative --date 2026-03-31
 ```
 
 Dry-run one automated case without calling Codex:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py bv-api-boundary-positive --date 2026-03-31 --dry-run
+python3 scripts/run_automated_case.py bv-api-boundary-positive --date 2026-03-31 --dry-run
 ```
 
 Dry-run one automated negative case without calling Codex:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py bv-review-only-negative --date 2026-03-31 --dry-run
+python3 scripts/run_automated_case.py bv-review-only-negative --date 2026-03-31 --dry-run
 ```
 
 Run the same negative dry-run with an explicit writable results root:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py \
+python3 scripts/run_automated_case.py \
   ia-pure-python-negative \
   --date 2026-03-31 \
   --dry-run \
-  --results-dir /home/marti/codex-eval-results
+  --results-dir ../codex-eval-results
 ```
 
 Dry-run the fixture-backed negative specialist case with an explicit writable results root:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_automated_case.py \
+python3 scripts/run_automated_case.py \
   sa-low-risk-ui-negative \
   --date 2026-03-31 \
   --dry-run \
-  --results-dir /home/marti/codex-eval-results
+  --results-dir ../codex-eval-results
 ```
 
 Compare a new false-trigger result to its stored negative baseline:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/compare_false_trigger_results.py \
-  --baseline /home/marti/.codex/evals/baselines/build-validate/bv-review-only-negative.json \
-  --result /home/marti/.codex/evals/results/2026-03-31/bv-review-only-negative.json
+python3 scripts/compare_false_trigger_results.py \
+  --baseline baselines/build-validate/bv-review-only-negative.json \
+  --result results/2026-03-31/bv-review-only-negative.json
 ```
 
 Compare the reviewer implementation-request negative case to its baseline:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/compare_false_trigger_results.py \
-  --baseline /home/marti/.codex/evals/baselines/reviewer/rv-implementation-request-negative.json \
-  --result /home/marti/.codex/evals/results/2026-03-31/rv-implementation-request-negative.json
+python3 scripts/compare_false_trigger_results.py \
+  --baseline baselines/reviewer/rv-implementation-request-negative.json \
+  --result results/2026-03-31/rv-implementation-request-negative.json
 ```
 
 Compare the fixture-backed security UI negative case to its baseline:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/compare_false_trigger_results.py \
-  --baseline /home/marti/.codex/evals/baselines/security-auditor/sa-low-risk-ui-negative.json \
-  --result /home/marti/.codex/evals/results/2026-03-31/sa-low-risk-ui-negative.json
+python3 scripts/compare_false_trigger_results.py \
+  --baseline baselines/security-auditor/sa-low-risk-ui-negative.json \
+  --result results/2026-03-31/sa-low-risk-ui-negative.json
 ```
 
 Run all supported automated cases in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py --date 2026-03-31
+python3 scripts/run_batch.py --date 2026-03-31
 ```
 
 Run all supported automated negative cases in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py --negative --date 2026-03-31
+python3 scripts/run_batch.py --negative --date 2026-03-31
 ```
 
 Run all supported automated negative cases in one batch with an explicit writable results root:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py \
+python3 scripts/run_batch.py \
   --negative \
   --date 2026-03-31 \
   --dry-run \
-  --results-dir /home/marti/codex-eval-results
+  --results-dir ../codex-eval-results
 ```
 
 Run both positive and negative automated cases in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py --all --date 2026-03-31
+python3 scripts/run_batch.py --all --date 2026-03-31
 ```
 
 Run a selected subset in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py \
+python3 scripts/run_batch.py \
   bv-api-boundary-positive \
   oi-bugfix-validate-positive \
   --date 2026-03-31
@@ -525,7 +525,7 @@ python3 /home/marti/.codex/evals/scripts/run_batch.py \
 Run only the three specialist-positive cases in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py \
+python3 scripts/run_batch.py \
   rv-regression-review-positive \
   ia-ffi-boundary-positive \
   sa-parser-subprocess-positive \
@@ -535,7 +535,7 @@ python3 /home/marti/.codex/evals/scripts/run_batch.py \
 Run a selected negative subset in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py \
+python3 scripts/run_batch.py \
   --negative \
   bv-review-only-negative \
   ia-pure-python-negative \
@@ -547,7 +547,7 @@ python3 /home/marti/.codex/evals/scripts/run_batch.py \
 Run a mixed positive and negative subset in one batch:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py \
+python3 scripts/run_batch.py \
   --all \
   bv-api-boundary-positive \
   bv-review-only-negative \
@@ -557,21 +557,21 @@ python3 /home/marti/.codex/evals/scripts/run_batch.py \
 Force a rerun for the same date and overwrite existing case artifacts:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py --date 2026-03-31 --force
+python3 scripts/run_batch.py --date 2026-03-31 --force
 ```
 
 Skip baseline comparison and only record fresh results:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py --date 2026-03-31 --no-compare
+python3 scripts/run_batch.py --date 2026-03-31 --no-compare
 ```
 
 Write the machine-readable batch summary to a custom location:
 
 ```bash
-python3 /home/marti/.codex/evals/scripts/run_batch.py \
+python3 scripts/run_batch.py \
   --date 2026-03-31 \
-  --summary-file /home/marti/.codex/evals/results/2026-03-31/my-batch-summary.json
+  --summary-file results/2026-03-31/my-batch-summary.json
 ```
 
 ## Manual Evaluation Loop

@@ -7,7 +7,7 @@ Use outcome=pass only when the case contract is satisfied; use partial or fail o
 case_id: bv-api-boundary-positive
 workflow: build-validate
 fixture_ref: tiny-python-service
-workspace_root: /home/marti/.codex/evals/results/2026-03-30/workspaces/bv-api-boundary-positive
+workspace_root: <evals-root>/results/2026-03-30/workspaces/bv-api-boundary-positive
 
 Case JSON:
 {

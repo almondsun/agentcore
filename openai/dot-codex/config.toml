@@ -1,6 +1,6 @@
 # ~/.codex/config.toml
 #
-# Global Codex defaults for mixed Python / C / C++ systems work.
+# Portable Codex defaults for mixed Python / C / C++ systems work.
 # Pair this with ~/.codex/AGENTS.md for high-signal engineering guidance.
 #
 # Design goals:
@@ -9,18 +9,14 @@
 # - Minimal accidental network / credential exposure
 # - Good support for layered AGENTS.md files
 #
-# Use profiles when you want to loosen the default posture for a specific session:
-#   codex --profile edit
-#   codex --profile review
-#   codex --profile interop
-#   codex --profile research
-#   codex --profile ci
+# Keep host-specific trusted project paths, writable roots, and virtual
+# environment overrides in the live ~/.codex/config.toml for each machine.
 
 ################################################################################
 # Core model selection
 ################################################################################
 
-model = "gpt-5.4"
+model = "gpt-5.5"
 review_model = "gpt-5.4"
 model_provider = "openai"
 
@@ -32,7 +28,7 @@ personality = "pragmatic"
 ################################################################################
 
 # Balanced default for daily engineering work.
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 # Spend more thought in plan-heavy paths.
 plan_mode_reasoning_effort = "high"
@@ -101,7 +97,7 @@ max_depth = 1
 ################################################################################
 
 [sandbox_workspace_write]
-# Keep additional writable roots empty by default.
+# Keep additional writable roots empty in the portable baseline.
 writable_roots = []
 
 # Keep outbound network enabled in the writable sandbox so Codex backend and
@@ -124,10 +120,6 @@ ignore_default_excludes = false
 # exclusions without being overly destructive to normal dev environments.
 exclude = ["*PASSWORD*", "*PRIVATE_KEY*", "*CREDENTIAL*"]
 
-# Explicit overrides for the shared eval venv so shell tools and local harness
-# runs see the same interpreter by default.
-set = { PATH = "/home/marti/.venvs/codex-evals/bin:/usr/local/bin:/usr/bin:/bin", VIRTUAL_ENV = "/home/marti/.venvs/codex-evals" }
-
 # Leave empty to avoid accidentally stripping essential build variables.
 include_only = []
 
@@ -143,6 +135,7 @@ persistence = "save-all"
 # Keep the terminal quiet by default.
 notifications = false
 theme = "catppuccin-mocha"
+status_line = ["model-with-reasoning", "current-dir", "five-hour-limit", "weekly-limit"]
 
 ################################################################################
 # Feature flags
@@ -211,24 +204,6 @@ plan_mode_reasoning_effort = "low"
 model_reasoning_summary = "none"
 model_verbosity = "low"
 web_search = "disabled"
-
-[projects."/home/marti/code/tmp"]
-trust_level = "trusted"
-
-[projects."/home/marti"]
-trust_level = "trusted"
-
-[projects."/home/marti/code/tmp/test_agent"]
-trust_level = "trusted"
-
-[projects."/home/marti/code/tmp/homeworks"]
-trust_level = "trusted"
-
-[projects."/home/marti/code/codexlab"]
-trust_level = "trusted"
-
-[projects."/home/marti/code/iQodec"]
-trust_level = "trusted"
 
 [mcp_servers.openaiDeveloperDocs]
 url = "https://developers.openai.com/mcp"

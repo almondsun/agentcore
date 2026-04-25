@@ -61,7 +61,7 @@ If you need any of those for debugging, keep them local and out of version contr
 
 ## Migration intent
 
-This repo is designed to help reconstruct a working environment on another Linux machine without copying raw runtime state.
+This repo is designed to help reconstruct a working environment on another compatible machine without copying raw runtime state.
 
 The intended migration pattern is:
 

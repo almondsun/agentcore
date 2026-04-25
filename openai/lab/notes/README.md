@@ -14,6 +14,6 @@ Good fits:
 - a short retrospective after a meaningful task
 - a rule change for how you evaluate Codex
 - a repeated failure mode or misleading success mode
-- a decision about what should or should not be promoted into `codexlab`
+- a decision about what should or should not be promoted into `openai/lab/`
 
 Do not use `notes/` for raw run logs or large result dumps.
