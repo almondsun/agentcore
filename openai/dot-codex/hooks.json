@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.codex/hooks/user_prompt_secret_guard.py",
+            "timeout": 10,
+            "statusMessage": "Checking prompt for secrets"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.codex/hooks/permission_request_guard.py",
+            "timeout": 10,
+            "statusMessage": "Checking approval request"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.codex/hooks/stop_validation_nudge.py",
+            "timeout": 10,
+            "statusMessage": "Checking validation closeout"
+          }
+        ]
+      }
+    ]
+  }
+}

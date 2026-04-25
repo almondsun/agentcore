@@ -1,3 +1,4 @@
+#:schema https://developers.openai.com/codex/config-schema.json
 # ~/.codex/config.toml
 #
 # Portable Codex defaults for mixed Python / C / C++ systems work.
@@ -77,7 +78,11 @@ project_root_markers = [".git", ".hg", ".sl"]
 ################################################################################
 
 check_for_update_on_startup = true
-approvals_reviewer = "guardian_subagent"
+approvals_reviewer = "auto_review"
+
+# Apply a reusable permission profile that keeps the workspace writable while
+# denying reads of common local-secret files.
+default_permissions = "workspace"
 
 # Uncomment and adjust if you want clickable file citations in a specific IDE.
 # file_opener = "vscode"         # or "cursor", "windsurf", "vscode-insiders", "none"
@@ -109,6 +114,15 @@ exclude_tmpdir_env_var = false
 exclude_slash_tmp = false
 
 ################################################################################
+# Permission profiles
+################################################################################
+
+[permissions.workspace.filesystem]
+":minimal" = "read"
+":project_roots" = { "." = "write", "**/*.env" = "none", "**/.env*" = "none", "**/*.pem" = "none", "**/*_key*" = "none", "**/*-key*" = "none" }
+glob_scan_max_depth = 4
+
+################################################################################
 # Shell environment handling
 ################################################################################
 
@@ -129,7 +143,7 @@ include_only = []
 
 [history]
 persistence = "save-all"
-# max_bytes = 5242880
+max_bytes = 5242880
 
 [tui]
 # Keep the terminal quiet by default.
@@ -146,10 +160,21 @@ unified_exec = true
 shell_snapshot = true
 multi_agent = true
 personality = true
-smart_approvals = false
+codex_hooks = true
+memories = true
+undo = true
 enable_request_compression = true
 guardian_approval = true
 prevent_idle_sleep = true
+
+################################################################################
+# Memories
+################################################################################
+
+[memories]
+# Avoid generating durable memories from threads that used MCP, web search, or
+# tool search. Stable rules remain in AGENTS.md and checked-in docs.
+disable_on_external_context = true
 
 ################################################################################
 # Profiles
@@ -169,9 +194,21 @@ web_search = "cached"
 # Use for code review, auditing, and bug-hunting.
 approval_policy = "on-request"
 sandbox_mode = "read-only"
+allow_login_shell = false
 model_reasoning_effort = "high"
 plan_mode_reasoning_effort = "high"
 model_reasoning_summary = "detailed"
+model_verbosity = "medium"
+web_search = "cached"
+
+[profiles.readonly]
+# Use for safe browsing and planning without local command side effects.
+approval_policy = "on-request"
+sandbox_mode = "read-only"
+allow_login_shell = false
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "high"
+model_reasoning_summary = "concise"
 model_verbosity = "medium"
 web_search = "cached"
 
@@ -199,6 +236,7 @@ web_search = "live"
 # Use for non-interactive inspection or scripted runs.
 approval_policy = "never"
 sandbox_mode = "read-only"
+allow_login_shell = false
 model_reasoning_effort = "low"
 plan_mode_reasoning_effort = "low"
 model_reasoning_summary = "none"
@@ -207,6 +245,7 @@ web_search = "disabled"
 
 [mcp_servers.openaiDeveloperDocs]
 url = "https://developers.openai.com/mcp"
+required = true
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"

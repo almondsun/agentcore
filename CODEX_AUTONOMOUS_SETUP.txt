@@ -5,6 +5,21 @@ Read this entire file first. Then configure this machine's Codex setup from
 this repository without asking follow-up questions unless continuing would risk
 destroying existing local configuration with no recoverable backup.
 
+Fast path
+---------
+
+If Python 3 is available, use the checked-in bootstrap helper first:
+
+    python3 scripts/bootstrap_codex_environment.py
+
+For a no-write preview:
+
+    python3 scripts/bootstrap_codex_environment.py --dry-run
+
+The script is stdlib-only and implements the install, merge, backup, and
+validation rules below. If Python 3 is unavailable or the script fails before it
+can safely proceed, follow the manual contract in this file.
+
 Goal
 ----
 
@@ -70,6 +85,8 @@ Copy these files or directories from the repo to the live locations:
 - openai/dot-codex/rules/ -> ~/.codex/rules/
 - openai/dot-codex/templates/ -> ~/.codex/templates/
 - openai/dot-codex/evals/ -> ~/.codex/evals/
+- openai/dot-codex/hooks.json -> ~/.codex/hooks.json
+- openai/dot-codex/hooks/ -> ~/.codex/hooks/
 - openai/dot-codex/version.json -> ~/.codex/version.json, only when no live
   version.json exists or when the repo version is newer after normal version
   comparison
@@ -149,7 +166,16 @@ If live ~/.codex/config.toml exists:
    meant to be created.
 7. Do not add host paths from this repository into the live config. The repo
    config should be machine-agnostic.
-8. Write the merged config atomically when practical.
+8. Generate host-specific local entries from the current machine, not from the
+   source machine:
+   - add ~/.codex/tmp as a writable root when needed for nested Codex runtime
+     shims
+   - mark only the current agentcore checkout as trusted, because the operator
+     explicitly cloned and invoked setup from this repo
+   - if the codex binary resolves under the user's home directory, add the
+     narrowest practical read grant under [permissions.workspace.filesystem] so
+     Codex sandboxes can see their own installed runtime
+9. Write the merged config atomically when practical.
 
 If a TOML writer library is not available, use a conservative text merge:
 
@@ -180,15 +206,21 @@ After installation or merge, run the strongest local validation available:
 3. Run:
    python3 -B ~/.codex/evals/scripts/eval_harness.py validate
    if that script exists.
-4. Run a search over ~/.codex and ~/.agents for accidentally copied forbidden
+4. Compile copied hook scripts under ~/.codex/hooks when Python 3 is available.
+5. Run a search over ~/.codex and ~/.agents for accidentally copied forbidden
    runtime files:
    auth.json, history.jsonl, *.sqlite, *.sqlite-shm, *.sqlite-wal, logs,
    sessions, shell_snapshots, __pycache__, *.pyc, .tmp.
-5. Run a search for hard-coded paths from the source machine if the clone came
+6. Run a search for hard-coded paths from the source machine if the clone came
    from a different machine. At minimum search for /home/mitin and /home/marti.
-6. Confirm codex is available with:
+7. Confirm codex is available with:
    codex --version
    if the binary exists.
+8. Confirm the sandbox can start:
+   codex sandbox linux pwd
+   If it fails because the Codex runtime path is not visible, adjust only the
+   live machine-local [permissions.workspace.filesystem] read grant. Do not add
+   that host path to openai/dot-codex/config.toml.
 
 Do not run codex exec as part of setup unless the operator explicitly asked for
 a live backend check. Backend connectivity is environment-dependent and should

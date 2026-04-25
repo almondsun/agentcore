@@ -63,7 +63,18 @@ If you need any of those for debugging, keep them local and out of version contr
 
 This repo is designed to help reconstruct a working environment on another compatible machine without copying raw runtime state.
 
-The intended migration pattern is:
+The autonomous migration entrypoint is:
+
+```text
+Read CODEX_AUTONOMOUS_SETUP.txt first, then follow it autonomously.
+```
+
+That file points Codex at `scripts/bootstrap_codex_environment.py`, which
+installs the portable baseline and generates target-machine local config such
+as trusted checkout path, `~/.codex/tmp`, and any Codex runtime read grant
+needed by the sandbox.
+
+The manual migration pattern is:
 
 1. clone this repository
 2. review the relevant subtree documentation such as `openai/README.md`
