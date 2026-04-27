@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/user_prompt_secret_guard.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/user_prompt_secret_guard.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking prompt for secrets"
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/permission_request_guard.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/permission_request_guard.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking approval request"
           }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/stop_validation_nudge.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/stop_validation_nudge.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking validation closeout"
           }

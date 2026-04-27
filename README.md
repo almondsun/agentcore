@@ -84,6 +84,55 @@ The manual migration pattern is:
 
 Do not blindly overwrite a live agent home directory without reviewing the target machine's existing configuration.
 
+## Setting up Codex on a new Windows machine
+
+Use this repository as the portable baseline for a fresh Windows Codex setup.
+The bootstrap process installs the durable files from `openai/dot-codex/` into
+`%USERPROFILE%\.codex\` and custom skills from `openai/dot-agents/` into
+`%USERPROFILE%\.agents\`, while preserving machine-local configuration and
+backing up replaced files.
+
+Prerequisites:
+
+- Git for Windows
+- Python 3.11 or newer available as `python`
+- Codex installed and signed in on the target machine
+
+Important Windows note: do not rely on `python3` unless you have explicitly
+configured it. On a stock Windows install, `python3` may be a Microsoft Store
+execution alias that exits with code 1. Use `python` for this repository's
+bootstrap and validation commands.
+
+From PowerShell:
+
+```powershell
+mkdir $env:USERPROFILE\gh
+cd $env:USERPROFILE\gh
+git clone https://github.com/almondsun/agentcore.git
+cd agentcore
+python scripts\bootstrap_codex_environment.py --dry-run
+python scripts\bootstrap_codex_environment.py
+```
+
+The dry run should be reviewed first on machines that already have a
+`%USERPROFILE%\.codex\config.toml` or `%USERPROFILE%\.agents\` directory. The
+real run creates timestamped backups under
+`%USERPROFILE%\.codex-agentcore-backups\` before replacing existing durable
+files.
+
+After bootstrap, run the closest local validation:
+
+```powershell
+python scripts\bootstrap_codex_environment.py --validate-only
+codex --version
+```
+
+Then start Codex from the cloned `agentcore` checkout once so it can read the
+repo-specific instructions and trust the current checkout path. If hook popups
+mention `UserPromptSubmit`, `PermissionRequest`, or `Stop` exiting with code 1,
+check that `%USERPROFILE%\.codex\hooks.json` uses the checked-in Windows-safe
+hook launcher and that `python --version` succeeds.
+
 ## Publishing note
 
 Before publishing updates, review changes for:
