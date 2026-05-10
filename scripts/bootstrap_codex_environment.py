@@ -65,11 +65,13 @@ SKIP_PATTERNS = {
 }
 
 CONFIG_LOCAL_TABLE_PREFIXES = (
+    "hooks.state.",
     "projects.",
     "plugins.",
 )
 
 CONFIG_LOCAL_TABLES = {
+    "hooks.state",
     "tui.model_availability_nux",
 }
 
@@ -216,10 +218,10 @@ def install_version_json(plan: Plan) -> None:
     if not dst.exists():
         plan.replace_file(src, dst)
         return
-    if version_tuple(src) >= version_tuple(dst):
+    if version_tuple(src) > version_tuple(dst):
         plan.replace_file(src, dst)
     else:
-        plan.note(f"preserve newer live version file {dst}")
+        plan.note(f"preserve live version file because repo version is not newer: {dst}")
 
 
 def copy_tree_contents(src_dir: Path, dst_dir: Path, plan: Plan) -> None:
@@ -491,7 +493,7 @@ def files_equal(src: Path, dst: Path) -> bool:
 def version_tuple(path: Path) -> tuple[int, ...]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        version = str(data.get("version", "0"))
+        version = str(data.get("version") or data.get("latest_version") or "0")
     except Exception:
         return (0,)
     result: list[int] = []

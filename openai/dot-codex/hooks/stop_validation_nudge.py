@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Continue changed-worktree turns that end without validation evidence."""
+"""Continue implementation closeouts that omit validation evidence."""
 
 from __future__ import annotations
 
@@ -21,6 +21,45 @@ VALIDATION_MARKERS = (
     "remaining unverified",
 )
 
+PLAN_OR_DISCUSSION_MARKERS = (
+    "<proposed_plan>",
+    "no files were edited",
+    "no file was edited",
+    "no files changed",
+    "no repo-tracked edits",
+    "no implementation happened",
+    "no implementation was performed",
+    "no implementation change",
+    "plan-only",
+    "planning turn",
+    "conversational",
+    "only inspected",
+    "only combined",
+    "only clarified",
+)
+
+IMPLEMENTATION_CLOSEOUT_MARKERS = (
+    "implemented",
+    "changed",
+    "updated",
+    "fixed",
+    "installed",
+    "created",
+    "removed",
+    "refactored",
+    "patched",
+    "added",
+    "deleted",
+    "renamed",
+    "modified",
+    "configured",
+    "wrote",
+    "what changed",
+    "summary",
+    "done",
+    "completed",
+)
+
 
 def _git_has_changes(cwd: str) -> bool:
     try:
@@ -36,6 +75,16 @@ def _git_has_changes(cwd: str) -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0 and bool(result.stdout.strip())
+
+
+def _is_plan_or_discussion(message: str) -> bool:
+    lower_message = message.lower()
+    return any(marker in lower_message for marker in PLAN_OR_DISCUSSION_MARKERS)
+
+
+def _looks_like_implementation_closeout(message: str) -> bool:
+    lower_message = message.lower()
+    return any(marker in lower_message for marker in IMPLEMENTATION_CLOSEOUT_MARKERS)
 
 
 def main() -> int:
@@ -60,6 +109,12 @@ def main() -> int:
 
     lower_message = message.lower()
     if any(marker in lower_message for marker in VALIDATION_MARKERS):
+        return 0
+
+    if _is_plan_or_discussion(message):
+        return 0
+
+    if not _looks_like_implementation_closeout(message):
         return 0
 
     print(

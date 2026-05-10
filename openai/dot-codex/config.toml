@@ -156,16 +156,27 @@ status_line = ["model-with-reasoning", "current-dir", "five-hour-limit", "weekly
 ################################################################################
 
 [features]
+apps = true
+browser_use = true
+browser_use_external = true
+computer_use = true
 unified_exec = true
+shell_tool = true
 shell_snapshot = true
 multi_agent = true
 personality = true
-codex_hooks = true
+hooks = true
+fast_mode = false
 memories = true
-undo = true
 enable_request_compression = true
 guardian_approval = true
+image_generation = true
+in_app_browser = true
 prevent_idle_sleep = true
+skill_mcp_dependency_install = true
+tool_search = true
+tool_suggest = true
+workspace_dependencies = true
 
 ################################################################################
 # Memories

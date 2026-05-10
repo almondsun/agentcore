@@ -143,6 +143,7 @@ If live ~/.codex/config.toml exists:
    - all [projects.*] tables
    - [sandbox_workspace_write].writable_roots
    - [shell_environment_policy].set
+   - [hooks.state] and [hooks.state.*] tables
    - [plugins.*] tables
    - any local file_opener setting
    - any target-machine paths that already exist and are intentionally trusted
