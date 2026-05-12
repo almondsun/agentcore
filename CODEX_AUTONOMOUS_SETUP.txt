@@ -8,13 +8,23 @@ destroying existing local configuration with no recoverable backup.
 Fast path
 ---------
 
-If Python 3 is available, use the checked-in bootstrap helper first:
+If Python 3 is available, use the checked-in bootstrap helper first with the
+target machine's working Python executable:
 
     python3 scripts/bootstrap_codex_environment.py
+
+On Windows, prefer python instead of python3 unless python3 is explicitly known
+to be configured:
+
+    python scripts\bootstrap_codex_environment.py
 
 For a no-write preview:
 
     python3 scripts/bootstrap_codex_environment.py --dry-run
+
+On Windows:
+
+    python scripts\bootstrap_codex_environment.py --dry-run
 
 The script is stdlib-only and implements the install, merge, backup, and
 validation rules below. If Python 3 is unavailable or the script fails before it
@@ -143,6 +153,7 @@ If live ~/.codex/config.toml exists:
    - all [projects.*] tables
    - [sandbox_workspace_write].writable_roots
    - [shell_environment_policy].set
+   - [hooks.state] and [hooks.state.*] tables
    - [plugins.*] tables
    - any local file_opener setting
    - any target-machine paths that already exist and are intentionally trusted
@@ -175,6 +186,9 @@ If live ~/.codex/config.toml exists:
    - if the codex binary resolves under the user's home directory, add the
      narrowest practical read grant under [permissions.workspace.filesystem] so
      Codex sandboxes can see their own installed runtime
+   - add narrow read grants for installed skill roots that live outside the
+     active project, such as ~/.agents/skills, ~/.codex/skills/.system, and
+     symlinked custom skill targets with a SKILL.md file
 9. Write the merged config atomically when practical.
 
 If a TOML writer library is not available, use a conservative text merge:
@@ -203,9 +217,10 @@ After installation or merge, run the strongest local validation available:
 
 1. Parse ~/.codex/config.toml as TOML.
 2. Parse copied JSON files under ~/.codex/evals and ~/.codex/version.json.
-3. Run:
+3. Run with the target machine's working Python executable:
    python3 -B ~/.codex/evals/scripts/eval_harness.py validate
    if that script exists.
+   On Windows, use python and the target machine's home path convention.
 4. Compile copied hook scripts under ~/.codex/hooks when Python 3 is available.
 5. Run a search over ~/.codex and ~/.agents for accidentally copied forbidden
    runtime files:
@@ -216,7 +231,7 @@ After installation or merge, run the strongest local validation available:
 7. Confirm codex is available with:
    codex --version
    if the binary exists.
-8. Confirm the sandbox can start:
+8. Confirm the sandbox can start when the platform exposes that subcommand:
    codex sandbox linux pwd
    If it fails because the Codex runtime path is not visible, adjust only the
    live machine-local [permissions.workspace.filesystem] read grant. Do not add

@@ -65,11 +65,13 @@ SKIP_PATTERNS = {
 }
 
 CONFIG_LOCAL_TABLE_PREFIXES = (
+    "hooks.state.",
     "projects.",
     "plugins.",
 )
 
 CONFIG_LOCAL_TABLES = {
+    "hooks.state",
     "tui.model_availability_nux",
 }
 
@@ -216,10 +218,10 @@ def install_version_json(plan: Plan) -> None:
     if not dst.exists():
         plan.replace_file(src, dst)
         return
-    if version_tuple(src) >= version_tuple(dst):
+    if version_tuple(src) > version_tuple(dst):
         plan.replace_file(src, dst)
     else:
-        plan.note(f"preserve newer live version file {dst}")
+        plan.note(f"preserve live version file because repo version is not newer: {dst}")
 
 
 def copy_tree_contents(src_dir: Path, dst_dir: Path, plan: Plan) -> None:
@@ -253,7 +255,7 @@ def build_merged_config() -> str:
     if tmp_root not in writable_roots:
         writable_roots.append(tmp_root)
 
-    runtime_grants = detect_codex_runtime_read_grants()
+    runtime_grants = detect_codex_runtime_read_grants() + detect_skill_read_grants()
     text = replace_table_key(
         baseline_text,
         "sandbox_workspace_write",
@@ -301,6 +303,29 @@ def detect_codex_runtime_read_grants() -> list[str]:
     if resolved.parent.name == "bin":
         return [str(resolved.parent.parent)]
     return [str(resolved.parent)]
+
+
+def detect_skill_read_grants() -> list[str]:
+    """Return host-local skill roots that Codex sandboxes need to read."""
+
+    grants: list[str] = []
+    for path in (LIVE_AGENTS / "skills", LIVE_CODEX / "skills" / ".system"):
+        if path.exists():
+            grants.append(str(path))
+
+    skills_dir = LIVE_AGENTS / "skills"
+    if skills_dir.exists():
+        for item in sorted(skills_dir.iterdir()):
+            if not item.is_symlink():
+                continue
+            try:
+                target = item.resolve(strict=True)
+            except OSError:
+                continue
+            if (target / "SKILL.md").exists():
+                grants.append(str(target))
+
+    return dedupe_strings(grants)
 
 
 def ensure_filesystem_grants(text: str, grants: list[str]) -> str:
@@ -369,6 +394,17 @@ def dedupe_sections(sections: list[str]) -> list[str]:
             continue
         seen.add(header)
         result.append(section)
+    return result
+
+
+def dedupe_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
     return result
 
 
@@ -491,7 +527,7 @@ def files_equal(src: Path, dst: Path) -> bool:
 def version_tuple(path: Path) -> tuple[int, ...]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        version = str(data.get("version", "0"))
+        version = str(data.get("version") or data.get("latest_version") or "0")
     except Exception:
         return (0,)
     result: list[int] = []

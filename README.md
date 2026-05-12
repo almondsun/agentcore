@@ -72,7 +72,9 @@ Read CODEX_AUTONOMOUS_SETUP.txt first, then follow it autonomously.
 That file points Codex at `scripts/bootstrap_codex_environment.py`, which
 installs the portable baseline and generates target-machine local config such
 as trusted checkout path, `~/.codex/tmp`, and any Codex runtime read grant
-needed by the sandbox.
+needed by the sandbox. It also grants the sandbox read-only access to installed
+skill roots that exist on that target machine, such as `~/.agents/skills` and
+system skills under `~/.codex/skills/.system`.
 
 The manual migration pattern is:
 
@@ -129,9 +131,9 @@ codex --version
 
 Then start Codex from the cloned `agentcore` checkout once so it can read the
 repo-specific instructions and trust the current checkout path. If hook popups
-mention `UserPromptSubmit`, `PermissionRequest`, or `Stop` exiting with code 1,
-check that `%USERPROFILE%\.codex\hooks.json` uses the checked-in Windows-safe
-hook launcher and that `python --version` succeeds.
+mention any hook exiting with code 1, check that
+`%USERPROFILE%\.codex\hooks.json` uses the checked-in Windows-safe hook
+launcher and that `python --version` succeeds.
 
 ## Publishing note
 
