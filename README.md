@@ -72,7 +72,9 @@ Read CODEX_AUTONOMOUS_SETUP.txt first, then follow it autonomously.
 That file points Codex at `scripts/bootstrap_codex_environment.py`, which
 installs the portable baseline and generates target-machine local config such
 as trusted checkout path, `~/.codex/tmp`, and any Codex runtime read grant
-needed by the sandbox.
+needed by the sandbox. It also grants the sandbox read-only access to installed
+skill roots that exist on that target machine, such as `~/.agents/skills` and
+system skills under `~/.codex/skills/.system`.
 
 The manual migration pattern is:
 

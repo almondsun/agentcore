@@ -176,6 +176,9 @@ If live ~/.codex/config.toml exists:
    - if the codex binary resolves under the user's home directory, add the
      narrowest practical read grant under [permissions.workspace.filesystem] so
      Codex sandboxes can see their own installed runtime
+   - add narrow read grants for installed skill roots that live outside the
+     active project, such as ~/.agents/skills, ~/.codex/skills/.system, and
+     symlinked custom skill targets with a SKILL.md file
 9. Write the merged config atomically when practical.
 
 If a TOML writer library is not available, use a conservative text merge:
