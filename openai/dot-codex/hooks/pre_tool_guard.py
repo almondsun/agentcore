@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
+from collections.abc import Iterable
 from typing import Any
 
 
@@ -26,6 +28,17 @@ SECRET_PATTERNS = [
 ]
 
 
+
+SECRET_PATH_PATTERNS = [
+    ("a dotenv file", re.compile(r"(?i)(^|[/\\])\.env(?:\.[A-Za-z0-9_-]+)?$")),
+    ("a PEM key or certificate file", re.compile(r"(?i)(^|[/\\])[^/\\]+\.pem$")),
+    ("a PKCS key/certificate bundle", re.compile(r"(?i)(^|[/\\])[^/\\]+\.(?:p12|pfx)$")),
+    ("a private SSH key", re.compile(r"(?i)(^|[/\\])id_(?:rsa|dsa|ecdsa|ed25519)$")),
+    ("Codex auth state", re.compile(r"(?i)(^|[/\\])auth\.json$")),
+    ("a credentials file", re.compile(r"(?i)(^|[/\\])[^/\\]*(?:credential|credentials)[^/\\]*$")),
+    ("a private-key path", re.compile(r"(?i)(^|[/\\])[^/\\]*private[-_]?key[^/\\]*$")),
+]
+
 def _tool_input_text(tool_input: Any) -> str:
     if isinstance(tool_input, dict):
         command = tool_input.get("command")
@@ -35,6 +48,39 @@ def _tool_input_text(tool_input: Any) -> str:
         return json.dumps(tool_input, sort_keys=True)
     except (TypeError, ValueError):
         return str(tool_input)
+
+
+def _iter_strings(value: Any) -> Iterable[str]:
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _iter_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_strings(item)
+
+
+def _candidate_path_tokens(text: str) -> list[str]:
+    tokens: list[str] = []
+    try:
+        tokens.extend(shlex.split(text))
+    except ValueError:
+        tokens.extend(text.split())
+    # Capture paths embedded inside quoted Python/Ruby/JS snippets where shlex
+    # keeps larger code fragments as one token.
+    tokens.extend(re.findall(r"(?:~|\.|/|[A-Za-z0-9_$-]+)[A-Za-z0-9_.$~+@%:/\\-]*(?:\.env(?:\.[A-Za-z0-9_-]+)?|\.pem|\.p12|\.pfx|auth\.json|id_(?:rsa|dsa|ecdsa|ed25519)|credentials?)[A-Za-z0-9_.$~+@%:/\\-]*", text, flags=re.IGNORECASE))
+    return tokens
+
+
+def _secret_path_reason(tool_input: Any) -> str | None:
+    for value in _iter_strings(tool_input):
+        for token in _candidate_path_tokens(value):
+            cleaned = token.strip('"\'`,;:()[]{}<>')
+            for label, pattern in SECRET_PATH_PATTERNS:
+                if pattern.search(cleaned):
+                    return f"Blocked tool request because it references {label}: {cleaned}."
+    return None
 
 
 def _block(reason: str) -> None:
@@ -66,6 +112,11 @@ def main() -> int:
             if re.search(pattern, text):
                 _block(f"Blocked catastrophic command pattern before execution: {reason}.")
                 return 0
+
+    secret_path_reason = _secret_path_reason(tool_input)
+    if secret_path_reason:
+        _block(secret_path_reason)
+        return 0
 
     for label, pattern in SECRET_PATTERNS:
         if pattern.search(text):
