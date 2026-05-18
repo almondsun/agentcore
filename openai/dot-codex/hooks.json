@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/session_start_context.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/session_start_context.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking session worktree context"
           }
@@ -15,11 +15,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|apply_patch|Edit|Write",
+        "matcher": "Bash|Read|apply_patch|Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/pre_tool_guard.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/pre_tool_guard.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking tool request"
           }
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/user_prompt_secret_guard.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/user_prompt_secret_guard.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking prompt for secrets"
           }
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/permission_request_guard.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/permission_request_guard.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking approval request"
           }
@@ -53,11 +53,11 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|apply_patch|Edit|Write",
+        "matcher": "Bash|Read|apply_patch|Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/post_tool_hygiene.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/post_tool_hygiene.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Reviewing tool result"
           }
@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.codex/hooks/stop_validation_nudge.py",
+            "command": "python -c \"import os, runpy; runpy.run_path(os.path.expanduser('~/.codex/hooks/stop_validation_nudge.py'), run_name='__main__')\"",
             "timeout": 10,
             "statusMessage": "Checking validation closeout"
           }
