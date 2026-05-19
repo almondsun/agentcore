@@ -19,15 +19,24 @@ codex exec --strict-config --json --sandbox read-only --skip-git-repo-check 'Rep
 
 ## Permission profile rules
 
-Do not reintroduce the old inline `:project_roots` permission entry until it is
-revalidated against the installed CLI:
+Use the built-in workspace permission profile for normal sessions:
 
 ```toml
-":project_roots" = { "." = "write", "**/*.env" = "none" }
+default_permissions = ":workspace"
 ```
 
-`codex-cli 0.131.0` rejected or warned on this setup in the live profile. Secret
-path protection is handled by lifecycle hooks instead of that config pattern.
+Do not define a custom `workspace` profile with explicit `:project_roots` entries:
+
+```toml
+[permissions.workspace.filesystem.":project_roots"]
+"." = "write"
+```
+
+`codex-cli 0.131.0` may warn that `:project_roots` is not recognized when that
+special token appears in a custom filesystem profile, even though the built-in
+`:workspace` profile still gives normal sessions access to the current project
+root. Secret path protection is handled by lifecycle hooks instead of filesystem
+deny globs.
 
 ## Login-shell behavior
 
