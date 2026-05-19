@@ -80,9 +80,9 @@ project_root_markers = [".git", ".hg", ".sl"]
 check_for_update_on_startup = true
 approvals_reviewer = "auto_review"
 
-# Apply a reusable permission profile that keeps the workspace writable while
-# denying reads of common local-secret files.
-default_permissions = "workspace"
+# Use Codex's built-in workspace profile. Secret-path protection lives in
+# lifecycle hooks instead of filesystem deny globs for CLI compatibility.
+default_permissions = ":workspace"
 
 # Uncomment and adjust if you want clickable file citations in a specific IDE.
 # file_opener = "vscode"         # or "cursor", "windsurf", "vscode-insiders", "none"
@@ -114,14 +114,6 @@ exclude_tmpdir_env_var = false
 exclude_slash_tmp = false
 
 ################################################################################
-# Permission profiles
-################################################################################
-
-[permissions.workspace.filesystem]
-":minimal" = "read"
-glob_scan_max_depth = 4
-
-################################################################################
 # Shell environment handling
 ################################################################################
 
@@ -148,7 +140,8 @@ max_bytes = 5242880
 # Keep the terminal quiet by default.
 notifications = false
 theme = "catppuccin-mocha"
-status_line = ["model-with-reasoning", "current-dir", "five-hour-limit", "weekly-limit"]
+status_line = ["model-with-reasoning", "current-dir", "five-hour-limit", "weekly-limit", "context-remaining", "codex-version"]
+status_line_use_colors = true
 
 ################################################################################
 # Feature flags
@@ -176,6 +169,7 @@ skill_mcp_dependency_install = true
 tool_search = true
 tool_suggest = true
 workspace_dependencies = true
+terminal_resize_reflow = true
 
 ################################################################################
 # Memories
