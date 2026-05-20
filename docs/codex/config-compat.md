@@ -1,6 +1,6 @@
 # Codex Config Compatibility
 
-These notes capture the compatibility rules verified against `codex-cli 0.131.0`.
+These notes capture the compatibility rules verified against `codex-cli 0.132.0`.
 
 ## Validation contract
 
@@ -17,6 +17,11 @@ python3 scripts/bootstrap_codex_environment.py --validate-only
 codex exec --strict-config --json --sandbox read-only --skip-git-repo-check 'Reply exactly OK.'
 ```
 
+`codex doctor` performs live network, provider, and MCP reachability checks. Run
+it from a normal shell or with network access available; a restricted agent
+sandbox can produce false reachability failures even when the live setup is
+healthy.
+
 ## Permission profile rules
 
 Use the built-in workspace permission profile for normal sessions:
@@ -25,18 +30,17 @@ Use the built-in workspace permission profile for normal sessions:
 default_permissions = ":workspace"
 ```
 
-Do not define a custom `workspace` profile with explicit `:project_roots` entries:
+If a custom permission profile is genuinely needed, `codex-cli 0.132.0` documents
+`:workspace_roots` as the scoped filesystem token. Do not use the old
+`:project_roots` spelling.
 
 ```toml
-[permissions.workspace.filesystem.":project_roots"]
+[permissions.custom.filesystem.":workspace_roots"]
 "." = "write"
 ```
 
-`codex-cli 0.131.0` may warn that `:project_roots` is not recognized when that
-special token appears in a custom filesystem profile, even though the built-in
-`:workspace` profile still gives normal sessions access to the current project
-root. Secret path protection is handled by lifecycle hooks instead of filesystem
-deny globs.
+The portable baseline intentionally avoids custom filesystem profiles. Secret
+path protection is handled by lifecycle hooks instead of filesystem deny globs.
 
 ## Login-shell behavior
 
@@ -59,3 +63,13 @@ codex --profile research
 ```
 
 Use `ci` for non-interactive inspection where web access should be disabled.
+
+## 0.132.0 notes
+
+- `codex login status` is available for automation-friendly auth checks.
+- `codex exec resume` now accepts `--output-schema`, matching first-run
+  `codex exec --output-schema` structured-output validation.
+- The live setup has `features.memories = true`; 0.132.0 rebuilds stale memory
+  summary formats automatically, so no repo migration is needed.
+- `goals` remains experimental and is intentionally not enabled in the portable
+  baseline.
