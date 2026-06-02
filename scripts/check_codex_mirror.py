@@ -39,6 +39,7 @@ MANAGED_RELATIVE_DIRS = [
 ]
 SKIP_NAMES = {'__pycache__'}
 SKIP_SUFFIXES = {'.pyc', '.pyo'}
+AGENTCORE_PERMISSION_PROFILE = 'agentcore_workspace'
 
 
 class Drift:
@@ -96,10 +97,6 @@ def normalize_config(data: dict[str, Any]) -> dict[str, Any]:
     result.pop('projects', None)
     result.pop('plugins', None)
 
-    sandbox = result.get('sandbox_workspace_write')
-    if isinstance(sandbox, dict):
-        sandbox['writable_roots'] = []
-
     tui = result.get('tui')
     if isinstance(tui, dict):
         tui.pop('model_availability_nux', None)
@@ -112,13 +109,16 @@ def normalize_config(data: dict[str, Any]) -> dict[str, Any]:
 
     permissions = result.get('permissions')
     if isinstance(permissions, dict):
-        workspace = permissions.get('workspace')
-        if isinstance(workspace, dict):
-            filesystem = workspace.get('filesystem')
+        profile = permissions.get(AGENTCORE_PERMISSION_PROFILE)
+        if isinstance(profile, dict):
+            profile.pop('workspace_roots', None)
+            filesystem = profile.get('filesystem')
             if isinstance(filesystem, dict):
                 for key in list(filesystem):
                     if key.startswith('/') or key.startswith('~'):
                         filesystem.pop(key, None)
+                if not filesystem:
+                    profile.pop('filesystem', None)
     return result
 
 

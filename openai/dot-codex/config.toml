@@ -49,10 +49,6 @@ model_verbosity = "medium"
 # - dangerous or non-routine actions still require approval
 approval_policy = "on-request"
 
-# Conservative global sandbox.
-# Use the "edit" or "interop" profiles when you explicitly want file edits.
-sandbox_mode = "workspace-write"
-
 # Allow login-shell semantics when needed by shell-based tools.
 allow_login_shell = true
 
@@ -80,9 +76,10 @@ project_root_markers = [".git", ".hg", ".sl"]
 check_for_update_on_startup = true
 approvals_reviewer = "auto_review"
 
-# Use Codex's built-in workspace profile. Secret-path protection lives in
-# lifecycle hooks instead of filesystem deny globs for CLI compatibility.
-default_permissions = ":workspace"
+# Use an agentcore-owned profile that extends Codex's built-in workspace
+# permissions. The checked-in profile stays path-free; setup generates
+# target-machine roots and read grants in the live config.
+default_permissions = "agentcore_workspace"
 
 # Uncomment and adjust if you want clickable file citations in a specific IDE.
 # file_opener = "vscode"         # or "cursor", "windsurf", "vscode-insiders", "none"
@@ -98,20 +95,12 @@ max_depth = 1
 # job_max_runtime_seconds = 1800
 
 ################################################################################
-# Sandbox settings used when sandbox_mode = "workspace-write"
+# Permissions
 ################################################################################
 
-[sandbox_workspace_write]
-# Keep additional writable roots empty in the portable baseline.
-writable_roots = []
-
-# Keep outbound network enabled in the writable sandbox so Codex backend and
-# docs MCP access continue to work during normal sessions.
-network_access = true
-
-# Leave temp access at standard defaults unless you need stricter isolation.
-exclude_tmpdir_env_var = false
-exclude_slash_tmp = false
+[permissions.agentcore_workspace]
+description = "Agentcore workspace baseline with target-machine local grants generated during setup."
+extends = ":workspace"
 
 ################################################################################
 # Shell environment handling
@@ -166,7 +155,6 @@ image_generation = true
 in_app_browser = true
 prevent_idle_sleep = true
 skill_mcp_dependency_install = true
-tool_search = true
 tool_suggest = true
 workspace_dependencies = true
 terminal_resize_reflow = true

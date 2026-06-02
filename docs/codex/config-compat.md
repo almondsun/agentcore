@@ -1,6 +1,6 @@
 # Codex Config Compatibility
 
-These notes capture the compatibility rules verified against `codex-cli 0.132.0`.
+These notes capture the compatibility rules verified against `codex-cli 0.135.0`.
 
 ## Validation contract
 
@@ -24,23 +24,33 @@ healthy.
 
 ## Permission profile rules
 
-Use the built-in workspace permission profile for normal sessions:
+Use the agentcore permission profile for normal sessions:
 
 ```toml
-default_permissions = ":workspace"
+default_permissions = "agentcore_workspace"
+
+[permissions.agentcore_workspace]
+extends = ":workspace"
 ```
 
-If a custom permission profile is genuinely needed, `codex-cli 0.132.0` documents
-`:workspace_roots` as the scoped filesystem token. Do not use the old
-`:project_roots` spelling.
+Current Codex documentation says not to combine `default_permissions` with
+top-level `sandbox_mode` or `[sandbox_workspace_write]`. The portable baseline
+therefore keeps sandbox behavior in the named permission profile instead of
+legacy sandbox keys.
+
+The checked-in profile must remain path-free. The bootstrap helper may generate
+target-machine local entries in live `~/.codex/config.toml`:
 
 ```toml
-[permissions.custom.filesystem.":workspace_roots"]
-"." = "write"
+[permissions.agentcore_workspace.workspace_roots]
+"/home/user/.codex/tmp" = true
+
+[permissions.agentcore_workspace.filesystem]
+"/home/user/.agents/skills" = "read"
 ```
 
-The portable baseline intentionally avoids custom filesystem profiles. Secret
-path protection is handled by lifecycle hooks instead of filesystem deny globs.
+Do not use the old `:project_roots` spelling. Secret path protection is handled
+by lifecycle hooks instead of filesystem deny globs in the portable baseline.
 
 ## Login-shell behavior
 
@@ -64,12 +74,38 @@ codex --profile research
 
 Use `ci` for non-interactive inspection where web access should be disabled.
 
-## 0.132.0 notes
+## Windows notes
 
-- `codex login status` is available for automation-friendly auth checks.
-- `codex exec resume` now accepts `--output-schema`, matching first-run
-  `codex exec --output-schema` structured-output validation.
-- The live setup has `features.memories = true`; 0.132.0 rebuilds stale memory
-  summary formats automatically, so no repo migration is needed.
-- `goals` remains experimental and is intentionally not enabled in the portable
-  baseline.
+Native Windows installs can use Windows-specific sandbox keys, but the portable
+baseline does not enable them globally:
+
+```toml
+# [windows]
+# sandbox = "unelevated"
+# sandbox_private_desktop = true
+```
+
+Use `python` rather than `python3` on stock Windows unless `python3` is known to
+be configured. The `python3` launcher can be a Microsoft Store alias that exits
+before running the bootstrap helper.
+
+## 0.135.0 notes
+
+- `gpt-5.5` is the current default model in this baseline.
+- `features.goals` is stable in local `codex features list`; no explicit
+  portable flag is needed.
+- `features.tool_search` is removed in local `codex features list`; do not
+  enable it in the portable baseline.
+- `features.codex_git_commit`, `features.undo`, and legacy WebSocket feature
+  flags report as removed locally; keep them absent.
+- `features.web_search_cached` and `features.web_search_request` are deprecated;
+  use top-level `web_search = "cached" | "live" | "disabled"` instead.
+- `features.network_proxy` remains experimental and should stay disabled unless
+  a concrete task needs sandboxed network policy.
+- `unified_exec` is stable locally. Official docs note it is enabled by default
+  except on Windows, so Windows setup should validate it rather than assuming
+  parity with Linux.
+- Managed `requirements.toml` can constrain approval policy, sandbox modes, web
+  search, automatic review, feature flags, MCP servers, hooks, command rules,
+  and network requirements. Keep those policy layers outside this portable
+  mirror unless a task explicitly asks for managed-config material.
