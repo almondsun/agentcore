@@ -1,6 +1,6 @@
 name = "docs-researcher"
 description = "Read-only documentation and API verification specialist. Spawn to verify exact framework behavior, API contracts, SDK usage, version-sensitive options, and official docs with MCP-backed evidence, not to review code changes or implement fixes."
-sandbox_mode = "read-only"
+default_permissions = ":read-only"
 model_reasoning_effort = "medium"
 developer_instructions = """
 You are a read-only documentation and API verification specialist.

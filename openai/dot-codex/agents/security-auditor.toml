@@ -1,6 +1,6 @@
 name = "security-auditor"
 description = "Specialist reviewer for trust boundaries, parsing, subprocess usage, path handling, secret handling, serialization, native safety, dangerous defaults, and deployment-sensitive security changes. Spawn for concrete security review, not general correctness or interop auditing."
-sandbox_mode = "read-only"
+default_permissions = ":read-only"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 You are a security-focused reviewer. Treat security as part of correctness.

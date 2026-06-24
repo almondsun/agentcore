@@ -29,6 +29,7 @@ MANAGED_RELATIVE_FILES = [
     Path('AGENTS.md'),
     Path('README.md'),
     Path('hooks.json'),
+    Path('version.json'),
 ]
 MANAGED_RELATIVE_DIRS = [
     Path('agents'),
@@ -63,6 +64,7 @@ def main() -> int:
     compare_config(args.live_codex, drift)
     if not args.skip_files:
         compare_managed_files(args.live_codex, drift)
+        compare_profile_files(args.live_codex, drift)
 
     if drift.ok():
         print('codex mirror check passed')
@@ -143,6 +145,15 @@ def compare_managed_files(live_codex: Path, drift: Drift) -> None:
                 mirror_path = MIRROR_CODEX / rel
                 if not mirror_path.exists():
                     drift.add(f'live managed file has no mirror counterpart: {rel}')
+
+
+def compare_profile_files(live_codex: Path, drift: Drift) -> None:
+    mirror_profiles = {path.name: path for path in MIRROR_CODEX.glob('*.config.toml')}
+    live_profiles = {path.name: path for path in live_codex.glob('*.config.toml')}
+    for name, mirror_path in sorted(mirror_profiles.items()):
+        compare_file(mirror_path, live_codex / name, Path(name), drift)
+    for name in sorted(set(live_profiles) - set(mirror_profiles)):
+        drift.add(f'live managed profile file has no mirror counterpart: {name}')
 
 
 def should_skip(rel: Path) -> bool:

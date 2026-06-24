@@ -36,6 +36,7 @@ The OpenAI subtree keeps the durable pieces that are useful to migrate, review, 
 
 - `AGENTS.md`
 - `config.toml`
+- top-level Codex profile files such as `review.config.toml`
 - agent definition files
 - rules and templates
 - evaluation harness inputs and scripts

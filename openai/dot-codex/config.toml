@@ -18,7 +18,6 @@
 ################################################################################
 
 model = "gpt-5.5"
-review_model = "gpt-5.4"
 model_provider = "openai"
 
 # Keep tone direct and engineering-focused.
@@ -28,17 +27,19 @@ personality = "pragmatic"
 # Reasoning and verbosity
 ################################################################################
 
-# Balanced default for daily engineering work.
-model_reasoning_effort = "high"
+# Balanced default recommended for GPT-5.5.
+model_reasoning_effort = "medium"
 
-# Spend more thought in plan-heavy paths.
-plan_mode_reasoning_effort = "high"
+# Keep planning at the same balanced default. Raise this in task-specific
+# profiles only when the added reasoning is intentional.
+plan_mode_reasoning_effort = "medium"
 
 # Keep reasoning summaries compact unless a profile asks for more.
 model_reasoning_summary = "concise"
 
-# Avoid bloated answers by default.
-model_verbosity = "medium"
+# Keep the default concise. Profiles can raise this when richer explanation is
+# part of the workflow contract.
+model_verbosity = "low"
 
 ################################################################################
 # Approval, sandbox, and web
@@ -52,16 +53,17 @@ approval_policy = "on-request"
 # Allow login-shell semantics when needed by shell-based tools.
 allow_login_shell = true
 
-# Good default for documentation lookup without forcing live fetches everywhere.
-web_search = "cached"
+# Keep web lookup explicit. Use the research profile when current docs or live
+# web evidence materially affects the task.
+web_search = "disabled"
 
 ################################################################################
 # Instruction discovery / AGENTS.md layering
 ################################################################################
 
-# Raise the instruction budget so global + repo + nested AGENTS files are less
-# likely to be truncated in larger codebases.
-project_doc_max_bytes = 65536
+# Large enough for layered repo instructions without encouraging oversized
+# always-loaded guidance.
+project_doc_max_bytes = 49152
 
 # Search for project roots across common VCS markers.
 project_root_markers = [".git", ".hg", ".sl"]
@@ -76,10 +78,9 @@ project_root_markers = [".git", ".hg", ".sl"]
 check_for_update_on_startup = true
 approvals_reviewer = "auto_review"
 
-# Use an agentcore-owned profile that extends Codex's built-in workspace
-# permissions. The checked-in profile stays path-free; setup generates
-# target-machine roots and read grants in the live config.
-default_permissions = "agentcore_workspace"
+# Keep the global default tight. Use --profile edit, interop, or research when
+# a trusted workflow needs workspace writes.
+default_permissions = ":read-only"
 
 # Uncomment and adjust if you want clickable file citations in a specific IDE.
 # file_opener = "vscode"         # or "cursor", "windsurf", "vscode-insiders", "none"
@@ -89,8 +90,8 @@ default_permissions = "agentcore_workspace"
 ################################################################################
 
 [agents]
-# Conservative limits for cost / complexity control.
-max_threads = 4
+# Conservative limits for review and audit fanout.
+max_threads = 3
 max_depth = 1
 # job_max_runtime_seconds = 1800
 
@@ -99,8 +100,21 @@ max_depth = 1
 ################################################################################
 
 [permissions.agentcore_workspace]
-description = "Agentcore workspace baseline with target-machine local grants generated during setup."
+description = "Trusted workspace editing with target-machine local grants generated during setup."
 extends = ":workspace"
+
+[permissions.agentcore_workspace.filesystem]
+glob_scan_max_depth = 4
+
+[permissions.agentcore_workspace.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.pem" = "deny"
+"**/*.key" = "deny"
+"**/*_rsa" = "deny"
+"**/*_ed25519" = "deny"
+"**/id_rsa" = "deny"
+"**/id_ed25519" = "deny"
 
 ################################################################################
 # Shell environment handling
@@ -141,23 +155,15 @@ apps = true
 browser_use = true
 browser_use_external = true
 computer_use = true
-unified_exec = true
-shell_tool = true
-shell_snapshot = true
 multi_agent = true
 personality = true
 hooks = true
-fast_mode = false
-memories = true
-enable_request_compression = true
 guardian_approval = true
 image_generation = true
 in_app_browser = true
-prevent_idle_sleep = true
 skill_mcp_dependency_install = true
 tool_suggest = true
 workspace_dependencies = true
-terminal_resize_reflow = true
 
 ################################################################################
 # Memories
@@ -166,75 +172,18 @@ terminal_resize_reflow = true
 [memories]
 # Avoid generating durable memories from threads that used MCP, web search, or
 # tool search. Stable rules remain in AGENTS.md and checked-in docs.
+generate_memories = false
 disable_on_external_context = true
 
 ################################################################################
 # Profiles
 ################################################################################
 
-[profiles.edit]
-# Use for normal trusted editing sessions.
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-model_reasoning_effort = "medium"
-plan_mode_reasoning_effort = "high"
-model_reasoning_summary = "concise"
-model_verbosity = "medium"
-web_search = "cached"
-
-[profiles.review]
-# Use for code review, auditing, and bug-hunting.
-approval_policy = "on-request"
-sandbox_mode = "read-only"
-model_reasoning_effort = "high"
-plan_mode_reasoning_effort = "high"
-model_reasoning_summary = "detailed"
-model_verbosity = "medium"
-web_search = "cached"
-
-[profiles.readonly]
-# Use for safe browsing and planning without local command side effects.
-approval_policy = "on-request"
-sandbox_mode = "read-only"
-model_reasoning_effort = "medium"
-plan_mode_reasoning_effort = "high"
-model_reasoning_summary = "concise"
-model_verbosity = "medium"
-web_search = "cached"
-
-[profiles.interop]
-# Use for Python/C/C++ boundaries, FFI, ABI, ownership, marshaling, and lifetime work.
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-model_reasoning_effort = "high"
-plan_mode_reasoning_effort = "high"
-model_reasoning_summary = "detailed"
-model_verbosity = "medium"
-web_search = "cached"
-
-[profiles.research]
-# Use when you explicitly want fresher documentation or standards info.
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-model_reasoning_effort = "medium"
-plan_mode_reasoning_effort = "high"
-model_reasoning_summary = "concise"
-model_verbosity = "medium"
-web_search = "live"
-
-[profiles.ci]
-# Use for non-interactive inspection or scripted runs.
-approval_policy = "never"
-sandbox_mode = "read-only"
-model_reasoning_effort = "low"
-plan_mode_reasoning_effort = "low"
-model_reasoning_summary = "none"
-model_verbosity = "low"
-web_search = "disabled"
+# Codex 0.134.0+ reads profiles from $CODEX_HOME/<name>.config.toml.
+# The portable profile files live next to this base config in dot-codex/.
 
 [mcp_servers.openaiDeveloperDocs]
 url = "https://developers.openai.com/mcp"
-required = true
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"

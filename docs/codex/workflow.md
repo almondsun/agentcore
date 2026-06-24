@@ -14,6 +14,10 @@ hook regression tests, and a strict non-interactive Codex config load.
 The script reports doctor failures but continues with deterministic local checks
 so a restricted sandbox does not hide config regressions.
 
+If doctor reports an install/update target mismatch, use
+`docs/codex/install-health.md`. That is a local launcher/package-manager issue,
+not a Codex config parse failure.
+
 ## Live mirror drift
 
 ```bash

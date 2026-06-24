@@ -1,0 +1,8 @@
+# Use for code review, auditing, and bug-hunting.
+approval_policy = "on-request"
+default_permissions = ":read-only"
+model_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
+model_reasoning_summary = "detailed"
+model_verbosity = "low"
+web_search = "cached"

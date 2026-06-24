@@ -1,0 +1,8 @@
+# Use for non-interactive inspection or scripted runs.
+approval_policy = "never"
+default_permissions = ":read-only"
+model_reasoning_effort = "low"
+plan_mode_reasoning_effort = "low"
+model_reasoning_summary = "none"
+model_verbosity = "low"
+web_search = "disabled"

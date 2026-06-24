@@ -82,6 +82,7 @@ CONFIG_LOCAL_TOP_LEVEL_KEYS = {
 
 AGENTCORE_PERMISSION_PROFILE = "agentcore_workspace"
 AGENTCORE_PERMISSION_TABLE = f"permissions.{AGENTCORE_PERMISSION_PROFILE}"
+PROFILE_CONFIG_GLOB = "*.config.toml"
 
 
 class Plan:
@@ -208,6 +209,9 @@ def install(plan: Plan) -> None:
         if src.exists():
             plan.replace_file(src, LIVE_CODEX / name)
 
+    for src in sorted(SRC_CODEX.glob(PROFILE_CONFIG_GLOB)):
+        plan.replace_file(src, LIVE_CODEX / src.name, 0o600)
+
     install_version_json(plan)
     copy_tree_contents(SRC_AGENTS / "skills", LIVE_AGENTS / "skills", plan)
     agents_readme = SRC_AGENTS / "README.md"
@@ -226,7 +230,7 @@ def install_version_json(plan: Plan) -> None:
     if not dst.exists():
         plan.replace_file(src, dst)
         return
-    if version_tuple(src) > version_tuple(dst):
+    if version_tuple(src) >= version_tuple(dst):
         plan.replace_file(src, dst)
     else:
         plan.note(f"preserve live version file because repo version is not newer: {dst}")
@@ -479,12 +483,21 @@ def replace_top_level_key(text: str, key: str, value: str) -> str:
 
 def validate() -> list[str]:
     failures: list[str] = []
-    for path in (SRC_CODEX / "config.toml", LIVE_CODEX / "config.toml"):
+    toml_paths = [SRC_CODEX / "config.toml", LIVE_CODEX / "config.toml"]
+    toml_paths.extend(sorted(SRC_CODEX.glob(PROFILE_CONFIG_GLOB)))
+    toml_paths.extend(sorted(LIVE_CODEX.glob(PROFILE_CONFIG_GLOB)))
+    for path in toml_paths:
         if path.exists():
             try:
                 load_toml(path)
             except Exception as exc:  # noqa: BLE001 - validation should report all parse errors.
                 failures.append(f"{path}: TOML parse failed: {exc}")
+
+    if (SRC_CODEX / "config.toml").exists():
+        try:
+            failures.extend(validate_portable_permission_profile(SRC_CODEX / "config.toml"))
+        except Exception as exc:  # noqa: BLE001
+            failures.append(f"{SRC_CODEX / 'config.toml'}: permission validation failed: {exc}")
 
     for json_path in list(SRC_CODEX.rglob("*.json")) + list(LIVE_CODEX.rglob("*.json")):
         if should_skip(json_path.relative_to(json_path.anchor) if json_path.is_absolute() else json_path):
@@ -513,6 +526,40 @@ def validate() -> list[str]:
     for path in forbidden:
         failures.append(f"forbidden runtime/private file present in managed mirror path: {path}")
     return failures
+
+
+def validate_portable_permission_profile(path: Path) -> list[str]:
+    """Reject checked-in filesystem grants that point at missing optional paths."""
+
+    data = load_toml(path)
+    profile = (
+        data.get("permissions", {})
+        .get(AGENTCORE_PERMISSION_PROFILE, {})
+    )
+    if not isinstance(profile, dict):
+        return []
+    filesystem = profile.get("filesystem", {})
+    if not isinstance(filesystem, dict):
+        return []
+    workspace_table = filesystem.get(":workspace_roots", {})
+    if not isinstance(workspace_table, dict):
+        return []
+
+    failures: list[str] = []
+    for rel_path, grant in workspace_table.items():
+        if grant != "read" or not isinstance(rel_path, str):
+            continue
+        if has_glob_metachar(rel_path):
+            continue
+        if not (REPO_ROOT / rel_path).exists():
+            failures.append(
+                f"{path}: workspace-root read grant points at missing path: {rel_path}"
+            )
+    return failures
+
+
+def has_glob_metachar(value: str) -> bool:
+    return any(char in value for char in "*?[")
 
 
 def find_forbidden_runtime_files(root: Path) -> list[Path]:
