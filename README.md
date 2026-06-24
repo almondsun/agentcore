@@ -36,6 +36,7 @@ The OpenAI subtree keeps the durable pieces that are useful to migrate, review, 
 
 - `AGENTS.md`
 - `config.toml`
+- top-level Codex profile files such as `review.config.toml`
 - agent definition files
 - rules and templates
 - evaluation harness inputs and scripts
@@ -70,11 +71,12 @@ Read CODEX_AUTONOMOUS_SETUP.txt first, then follow it autonomously.
 ```
 
 That file points Codex at `scripts/bootstrap_codex_environment.py`, which
-installs the portable baseline and generates target-machine local config such
-as trusted checkout path, `~/.codex/tmp`, and any Codex runtime read grant
-needed by the sandbox. It also grants the sandbox read-only access to installed
-skill roots that exist on that target machine, such as `~/.agents/skills` and
-system skills under `~/.codex/skills/.system`.
+installs the portable baseline and generates target-machine local config under
+the `agentcore_workspace` permission profile, such as trusted checkout path,
+`~/.codex/tmp`, and any Codex runtime read grant needed by the sandbox. It also
+grants the sandbox read-only access to installed skill roots that exist on that
+target machine, such as `~/.agents/skills` and system skills under
+`~/.codex/skills/.system`.
 
 The manual migration pattern is:
 

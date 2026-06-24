@@ -6,9 +6,17 @@
 scripts/validate-codex.sh
 ```
 
-This runs `codex doctor`, bootstrap validation, TOML parsing, live-vs-mirror drift
-checks, branch sync checks, hook regression tests, and a strict non-interactive
-Codex config load.
+This runs `codex doctor`, bootstrap validation, TOML parsing, Codex version and
+feature compatibility checks, live-vs-mirror drift checks, branch sync checks,
+hook regression tests, and a strict non-interactive Codex config load.
+
+`codex doctor` checks live network, provider, MCP, and WebSocket reachability.
+The script reports doctor failures but continues with deterministic local checks
+so a restricted sandbox does not hide config regressions.
+
+If doctor reports an install/update target mismatch, use
+`docs/codex/install-health.md`. That is a local launcher/package-manager issue,
+not a Codex config parse failure.
 
 ## Live mirror drift
 
@@ -18,7 +26,7 @@ python3 scripts/check_codex_mirror.py
 
 The checker compares durable mirrored files with the live `~/.codex` setup while
 ignoring expected machine-local config such as trusted project paths and absolute
-runtime read grants.
+runtime read grants generated under the `agentcore_workspace` permission profile.
 
 ## Branch synchronization
 

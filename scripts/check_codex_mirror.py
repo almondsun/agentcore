@@ -29,6 +29,7 @@ MANAGED_RELATIVE_FILES = [
     Path('AGENTS.md'),
     Path('README.md'),
     Path('hooks.json'),
+    Path('version.json'),
 ]
 MANAGED_RELATIVE_DIRS = [
     Path('agents'),
@@ -39,6 +40,7 @@ MANAGED_RELATIVE_DIRS = [
 ]
 SKIP_NAMES = {'__pycache__'}
 SKIP_SUFFIXES = {'.pyc', '.pyo'}
+AGENTCORE_PERMISSION_PROFILE = 'agentcore_workspace'
 
 
 class Drift:
@@ -62,6 +64,7 @@ def main() -> int:
     compare_config(args.live_codex, drift)
     if not args.skip_files:
         compare_managed_files(args.live_codex, drift)
+        compare_profile_files(args.live_codex, drift)
 
     if drift.ok():
         print('codex mirror check passed')
@@ -96,10 +99,6 @@ def normalize_config(data: dict[str, Any]) -> dict[str, Any]:
     result.pop('projects', None)
     result.pop('plugins', None)
 
-    sandbox = result.get('sandbox_workspace_write')
-    if isinstance(sandbox, dict):
-        sandbox['writable_roots'] = []
-
     tui = result.get('tui')
     if isinstance(tui, dict):
         tui.pop('model_availability_nux', None)
@@ -112,13 +111,16 @@ def normalize_config(data: dict[str, Any]) -> dict[str, Any]:
 
     permissions = result.get('permissions')
     if isinstance(permissions, dict):
-        workspace = permissions.get('workspace')
-        if isinstance(workspace, dict):
-            filesystem = workspace.get('filesystem')
+        profile = permissions.get(AGENTCORE_PERMISSION_PROFILE)
+        if isinstance(profile, dict):
+            profile.pop('workspace_roots', None)
+            filesystem = profile.get('filesystem')
             if isinstance(filesystem, dict):
                 for key in list(filesystem):
                     if key.startswith('/') or key.startswith('~'):
                         filesystem.pop(key, None)
+                if not filesystem:
+                    profile.pop('filesystem', None)
     return result
 
 
@@ -143,6 +145,15 @@ def compare_managed_files(live_codex: Path, drift: Drift) -> None:
                 mirror_path = MIRROR_CODEX / rel
                 if not mirror_path.exists():
                     drift.add(f'live managed file has no mirror counterpart: {rel}')
+
+
+def compare_profile_files(live_codex: Path, drift: Drift) -> None:
+    mirror_profiles = {path.name: path for path in MIRROR_CODEX.glob('*.config.toml')}
+    live_profiles = {path.name: path for path in live_codex.glob('*.config.toml')}
+    for name, mirror_path in sorted(mirror_profiles.items()):
+        compare_file(mirror_path, live_codex / name, Path(name), drift)
+    for name in sorted(set(live_profiles) - set(mirror_profiles)):
+        drift.add(f'live managed profile file has no mirror counterpart: {name}')
 
 
 def should_skip(rel: Path) -> bool:

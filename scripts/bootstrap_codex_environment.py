@@ -72,8 +72,17 @@ CONFIG_LOCAL_TABLE_PREFIXES = (
 
 CONFIG_LOCAL_TABLES = {
     "hooks.state",
+    "shell_environment_policy.set",
     "tui.model_availability_nux",
 }
+
+CONFIG_LOCAL_TOP_LEVEL_KEYS = {
+    "file_opener",
+}
+
+AGENTCORE_PERMISSION_PROFILE = "agentcore_workspace"
+AGENTCORE_PERMISSION_TABLE = f"permissions.{AGENTCORE_PERMISSION_PROFILE}"
+PROFILE_CONFIG_GLOB = "*.config.toml"
 
 
 class Plan:
@@ -200,6 +209,9 @@ def install(plan: Plan) -> None:
         if src.exists():
             plan.replace_file(src, LIVE_CODEX / name)
 
+    for src in sorted(SRC_CODEX.glob(PROFILE_CONFIG_GLOB)):
+        plan.replace_file(src, LIVE_CODEX / src.name, 0o600)
+
     install_version_json(plan)
     copy_tree_contents(SRC_AGENTS / "skills", LIVE_AGENTS / "skills", plan)
     agents_readme = SRC_AGENTS / "README.md"
@@ -218,7 +230,7 @@ def install_version_json(plan: Plan) -> None:
     if not dst.exists():
         plan.replace_file(src, dst)
         return
-    if version_tuple(src) > version_tuple(dst):
+    if version_tuple(src) >= version_tuple(dst):
         plan.replace_file(src, dst)
     else:
         plan.note(f"preserve live version file because repo version is not newer: {dst}")
@@ -248,20 +260,14 @@ def build_merged_config() -> str:
         live_text = (LIVE_CODEX / "config.toml").read_text(encoding="utf-8")
         live_data = load_toml(LIVE_CODEX / "config.toml")
 
-    writable_roots = list_existing_strings(
-        live_data.get("sandbox_workspace_write", {}).get("writable_roots", [])
-    )
+    writable_roots = existing_workspace_roots(live_data)
     tmp_root = str(LIVE_CODEX / "tmp")
     if tmp_root not in writable_roots:
         writable_roots.append(tmp_root)
 
     runtime_grants = detect_codex_runtime_read_grants() + detect_skill_read_grants()
-    text = replace_table_key(
-        baseline_text,
-        "sandbox_workspace_write",
-        "writable_roots",
-        format_toml_string_array(writable_roots),
-    )
+    text = preserve_local_top_level_keys(baseline_text, live_data)
+    text = ensure_workspace_roots(text, writable_roots)
     text = ensure_filesystem_grants(text, runtime_grants)
 
     local_sections = extract_local_config_sections(live_text)
@@ -328,23 +334,61 @@ def detect_skill_read_grants() -> list[str]:
     return dedupe_strings(grants)
 
 
+def existing_workspace_roots(data: dict[str, Any]) -> list[str]:
+    roots = list_existing_strings(
+        data.get("sandbox_workspace_write", {}).get("writable_roots", [])
+    )
+    permissions = data.get("permissions")
+    if isinstance(permissions, dict):
+        profile = permissions.get(AGENTCORE_PERMISSION_PROFILE)
+        if isinstance(profile, dict):
+            workspace_roots = profile.get("workspace_roots")
+            if isinstance(workspace_roots, dict):
+                roots.extend(
+                    str(path)
+                    for path, enabled in workspace_roots.items()
+                    if enabled is True and isinstance(path, str) and path
+                )
+    return list_existing_paths(dedupe_strings(roots))
+
+
+def ensure_workspace_roots(text: str, roots: list[str]) -> str:
+    roots = list_existing_paths(roots)
+    if not roots:
+        return text
+    table = f"{AGENTCORE_PERMISSION_TABLE}.workspace_roots"
+    return upsert_table_lines(
+        text,
+        table,
+        [f'"{escape_toml_basic_string(root)}" = true' for root in roots],
+    )
+
+
 def ensure_filesystem_grants(text: str, grants: list[str]) -> str:
     grants = [grant for grant in grants if grant]
     if not grants:
         return text
+    table = f"{AGENTCORE_PERMISSION_TABLE}.filesystem"
+    return upsert_table_lines(
+        text,
+        table,
+        [f'"{escape_toml_basic_string(grant)}" = "read"' for grant in grants],
+    )
+
+
+def upsert_table_lines(text: str, table: str, new_lines: list[str]) -> str:
     lines = text.splitlines()
     out: list[str] = []
     in_table = False
     inserted = False
     existing_lines = set(lines)
     for line in lines:
-        if line.strip() == "[permissions.workspace.filesystem]":
+        if line.strip() == f"[{table}]":
             in_table = True
             out.append(line)
-            for grant in grants:
-                grant_line = f'"{escape_toml_basic_string(grant)}" = "read"'
-                if grant_line not in existing_lines:
-                    out.append(grant_line)
+            for new_line in new_lines:
+                if new_line not in existing_lines:
+                    out.append(new_line)
             inserted = True
             continue
         if in_table and line.startswith("[") and line.strip().endswith("]"):
@@ -352,9 +396,8 @@ def ensure_filesystem_grants(text: str, grants: list[str]) -> str:
         out.append(line)
     if not inserted:
         out.append("")
-        out.append("[permissions.workspace.filesystem]")
-        for grant in grants:
-            out.append(f'"{escape_toml_basic_string(grant)}" = "read"')
+        out.append(f"[{table}]")
+        out.extend(new_lines)
     return "\n".join(out) + "\n"
 
 
@@ -385,6 +428,14 @@ def is_local_table(name: str) -> bool:
     return any(name.startswith(prefix) for prefix in CONFIG_LOCAL_TABLE_PREFIXES)
 
 
+def preserve_local_top_level_keys(text: str, live_data: dict[str, Any]) -> str:
+    for key in sorted(CONFIG_LOCAL_TOP_LEVEL_KEYS):
+        value = live_data.get(key)
+        if isinstance(value, str) and value:
+            text = replace_top_level_key(text, key, f'"{escape_toml_basic_string(value)}"')
+    return text
+
+
 def dedupe_sections(sections: list[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -408,40 +459,45 @@ def dedupe_strings(values: list[str]) -> list[str]:
     return result
 
 
-def replace_table_key(text: str, table: str, key: str, value: str) -> str:
+def replace_top_level_key(text: str, key: str, value: str) -> str:
     lines = text.splitlines()
     out: list[str] = []
-    in_table = False
     replaced = False
+    inserted = False
     for line in lines:
         stripped = line.strip()
-        if stripped == f"[{table}]":
-            in_table = True
-            out.append(line)
-            continue
-        if in_table and stripped.startswith("[") and stripped.endswith("]"):
+        if not inserted and stripped.startswith("[") and stripped.endswith("]"):
             if not replaced:
                 out.append(f"{key} = {value}")
                 replaced = True
-            in_table = False
-        if in_table and stripped.startswith(f"{key} "):
+            inserted = True
+        if not inserted and stripped.startswith(f"{key} "):
             out.append(f"{key} = {value}")
             replaced = True
             continue
         out.append(line)
-    if in_table and not replaced:
+    if not replaced:
         out.append(f"{key} = {value}")
     return "\n".join(out) + "\n"
 
 
 def validate() -> list[str]:
     failures: list[str] = []
-    for path in (SRC_CODEX / "config.toml", LIVE_CODEX / "config.toml"):
+    toml_paths = [SRC_CODEX / "config.toml", LIVE_CODEX / "config.toml"]
+    toml_paths.extend(sorted(SRC_CODEX.glob(PROFILE_CONFIG_GLOB)))
+    toml_paths.extend(sorted(LIVE_CODEX.glob(PROFILE_CONFIG_GLOB)))
+    for path in toml_paths:
         if path.exists():
             try:
                 load_toml(path)
             except Exception as exc:  # noqa: BLE001 - validation should report all parse errors.
                 failures.append(f"{path}: TOML parse failed: {exc}")
+
+    if (SRC_CODEX / "config.toml").exists():
+        try:
+            failures.extend(validate_portable_permission_profile(SRC_CODEX / "config.toml"))
+        except Exception as exc:  # noqa: BLE001
+            failures.append(f"{SRC_CODEX / 'config.toml'}: permission validation failed: {exc}")
 
     for json_path in list(SRC_CODEX.rglob("*.json")) + list(LIVE_CODEX.rglob("*.json")):
         if should_skip(json_path.relative_to(json_path.anchor) if json_path.is_absolute() else json_path):
@@ -472,6 +528,40 @@ def validate() -> list[str]:
     return failures
 
 
+def validate_portable_permission_profile(path: Path) -> list[str]:
+    """Reject checked-in filesystem grants that point at missing optional paths."""
+
+    data = load_toml(path)
+    profile = (
+        data.get("permissions", {})
+        .get(AGENTCORE_PERMISSION_PROFILE, {})
+    )
+    if not isinstance(profile, dict):
+        return []
+    filesystem = profile.get("filesystem", {})
+    if not isinstance(filesystem, dict):
+        return []
+    workspace_table = filesystem.get(":workspace_roots", {})
+    if not isinstance(workspace_table, dict):
+        return []
+
+    failures: list[str] = []
+    for rel_path, grant in workspace_table.items():
+        if grant != "read" or not isinstance(rel_path, str):
+            continue
+        if has_glob_metachar(rel_path):
+            continue
+        if not (REPO_ROOT / rel_path).exists():
+            failures.append(
+                f"{path}: workspace-root read grant points at missing path: {rel_path}"
+            )
+    return failures
+
+
+def has_glob_metachar(value: str) -> bool:
+    return any(char in value for char in "*?[")
+
+
 def find_forbidden_runtime_files(root: Path) -> list[Path]:
     if not root.exists():
         return []
@@ -496,8 +586,18 @@ def list_existing_strings(value: Any) -> list[str]:
     return [item for item in value if isinstance(item, str) and item]
 
 
-def format_toml_string_array(values: list[str]) -> str:
-    return "[" + ", ".join(f'"{escape_toml_basic_string(value)}"' for value in values) + "]"
+def list_existing_paths(values: list[str]) -> list[str]:
+    results: list[str] = []
+    for value in values:
+        if path_exists_or_uses_home_convention(value):
+            results.append(value)
+    return results
+
+
+def path_exists_or_uses_home_convention(value: str) -> bool:
+    if value.startswith(("~/", "~\\", "%USERPROFILE%\\", "%USERPROFILE%/")):
+        return True
+    return Path(value).expanduser().exists()
 
 
 def escape_toml_basic_string(value: str) -> str:

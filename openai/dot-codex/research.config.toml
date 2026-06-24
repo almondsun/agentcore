@@ -1,0 +1,8 @@
+# Use when you explicitly want fresher documentation or standards info.
+approval_policy = "on-request"
+default_permissions = "agentcore_workspace"
+model_reasoning_effort = "medium"
+plan_mode_reasoning_effort = "medium"
+model_reasoning_summary = "concise"
+model_verbosity = "medium"
+web_search = "live"

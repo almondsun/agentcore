@@ -9,7 +9,9 @@ strict_output="$(mktemp -t agentcore-codex-strict.XXXXXX.jsonl)"
 trap 'rm -f "$strict_output"' EXIT
 
 echo "== codex doctor =="
-codex doctor --summary --no-color --ascii
+if ! codex doctor --summary --no-color --ascii; then
+  echo "warning: codex doctor reported live environment issues; continuing with local deterministic checks" >&2
+fi
 
 echo "== bootstrap validation =="
 python3 scripts/bootstrap_codex_environment.py --validate-only
@@ -23,23 +25,111 @@ paths = [
     Path('openai/dot-codex/config.toml'),
     Path.home() / '.codex' / 'config.toml',
 ]
+paths.extend(sorted(Path('openai/dot-codex').glob('*.config.toml')))
+paths.extend(sorted((Path.home() / '.codex').glob('*.config.toml')))
 for path in paths:
     with path.open('rb') as handle:
         tomllib.load(handle)
     print(f'ok {path}')
 PYTOML
 
+echo "== Codex version metadata =="
+python3 - <<'PYVERSION'
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+version_path = Path('openai/dot-codex/version.json')
+metadata = json.loads(version_path.read_text(encoding='utf-8'))
+expected = metadata.get('latest_version')
+codex = shutil.which('codex')
+if not codex:
+    print('warning: codex binary not found; skipped version metadata check')
+    raise SystemExit(0)
+result = subprocess.run([codex, '--version'], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+text = (result.stdout or result.stderr).strip()
+if result.returncode != 0:
+    raise SystemExit(f'codex --version failed: {text}')
+actual = text.split()[-1] if text else ''
+if expected != actual:
+    raise SystemExit(f'version metadata mismatch: version.json has {expected!r}, installed Codex is {actual!r}')
+print(f'ok codex-cli {actual}')
+PYVERSION
+
+echo "== Codex feature compatibility =="
+python3 - <<'PYFEATURES'
+import shutil
+import subprocess
+import tomllib
+from pathlib import Path
+
+codex = shutil.which('codex')
+if not codex:
+    print('warning: codex binary not found; skipped feature compatibility check')
+    raise SystemExit(0)
+config = tomllib.loads(Path('openai/dot-codex/config.toml').read_text(encoding='utf-8'))
+enabled = {name for name, value in config.get('features', {}).items() if value is True}
+try:
+    result = subprocess.run(
+        [codex, 'features', 'list'],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=20,
+    )
+except subprocess.TimeoutExpired:
+    print('warning: codex features list timed out; skipped feature compatibility check')
+    raise SystemExit(0)
+if result.returncode != 0:
+    raise SystemExit(f'codex features list failed: {(result.stdout or result.stderr).strip()}')
+removed = set()
+deprecated = set()
+unstable = set()
+for line in result.stdout.splitlines():
+    parts = line.split()
+    if len(parts) < 3:
+        continue
+    name, stage = parts[0], parts[1]
+    if stage == 'removed':
+        removed.add(name)
+    elif stage == 'deprecated':
+        deprecated.add(name)
+    elif stage in {'experimental', 'under'}:
+        unstable.add(name)
+bad_removed = sorted(enabled & removed)
+bad_deprecated = sorted(enabled & deprecated)
+bad_unstable = sorted(enabled & unstable)
+if bad_removed:
+    raise SystemExit('config enables removed Codex features: ' + ', '.join(bad_removed))
+if bad_deprecated:
+    raise SystemExit('config enables deprecated Codex features: ' + ', '.join(bad_deprecated))
+if bad_unstable:
+    raise SystemExit('config enables experimental/under-development Codex features: ' + ', '.join(bad_unstable))
+print('ok no enabled removed/deprecated/unstable features')
+PYFEATURES
+
 echo "== mirror drift check =="
 python3 scripts/check_codex_mirror.py
 
 echo "== branch sync check =="
-python3 scripts/check_branch_sync.py
+if git diff --quiet && git diff --cached --quiet; then
+  python3 scripts/check_branch_sync.py
+else
+  if ! python3 scripts/check_branch_sync.py; then
+    echo "warning: branch sync check failed while worktree is dirty; treat this as a pre-commit/publish gate" >&2
+  fi
+fi
+
+echo "== bootstrap config regression tests =="
+python3 scripts/test-bootstrap-config.py
 
 echo "== hook regression tests =="
 python3 scripts/test-codex-hooks.py
 
 echo "== strict codex config load =="
-codex exec --strict-config --json --sandbox read-only --skip-git-repo-check --cd "$repo_root" "$strict_prompt" >"$strict_output"
+codex exec --strict-config --json --config default_permissions='":read-only"' --skip-git-repo-check --cd "$repo_root" "$strict_prompt" >"$strict_output"
 STRICT_OUTPUT="$strict_output" python3 - <<'PYCHECK'
 from pathlib import Path
 import os
