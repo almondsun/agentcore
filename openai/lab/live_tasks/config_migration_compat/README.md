@@ -15,11 +15,13 @@ normal change work where contracts matter more than raw implementation speed.
 This repo loads a job dispatch config, builds the JSON payload handed to a
 downstream worker, and exposes a small CLI for operators to preview the plan.
 
-The current implementation only supports a legacy flat retry setting:
+The current implementation preserves the legacy flat retry setting and also
+supports the nested retry-policy shape:
 
-- config input field: `retries`
-- payload output field: `retry_count`
+- legacy input field: `retries`
+- new input object: `retry_policy.max_attempts` and `retry_policy.backoff_seconds`
+- stable downstream payload field: `retry_count`
 
-The intended live task is to introduce a new config shape without breaking
-existing configs or the downstream payload contract that current callers still
-depend on.
+This kept specimen represents the completed compatibility migration. Future
+reruns should start from a frozen pre-change fixture rather than treating this
+working tree as an unmodified seed.

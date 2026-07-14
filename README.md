@@ -12,10 +12,18 @@ This repository is meant to preserve the parts of an agent setup that are worth 
 
 It is not intended to be a raw home-directory backup.
 
+## Project health
+
+Pull requests are validated on Linux and Windows with Python 3.11 and 3.13.
+GitHub CodeQL, dependency review, secret scanning, Dependabot, CODEOWNERS, issue
+forms, and private vulnerability reporting provide the repository maintenance
+baseline. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
 ## Current structure
 
 ```text
 .
+├── .github/
 ├── openai/
 │   ├── dot-codex/
 │   ├── dot-agents/
@@ -134,8 +142,8 @@ codex --version
 Then start Codex from the cloned `agentcore` checkout once so it can read the
 repo-specific instructions and trust the current checkout path. If hook popups
 mention any hook exiting with code 1, check that
-`%USERPROFILE%\.codex\hooks.json` uses the checked-in Windows-safe hook
-launcher and that `python --version` succeeds.
+`%USERPROFILE%\.codex\hooks.json` contains the bootstrap-rendered absolute
+Python executable. Do not replace it with a bare `python` command.
 
 ## Publishing note
 

@@ -1,6 +1,7 @@
 # Codex Config Compatibility
 
-These notes capture the compatibility rules verified against `codex-cli 0.142.0`.
+These notes capture the compatibility rules verified against `codex-cli 0.144.4`.
+The machine-readable contract is `openai/dot-codex/compatibility.json`.
 
 ## Validation contract
 
@@ -45,7 +46,8 @@ top-level `sandbox_mode` or `[sandbox_workspace_write]`. The portable baseline
 therefore keeps sandbox behavior in the named permission profile instead of
 legacy sandbox keys.
 
-The checked-in profile must keep machine-specific absolute paths out of the
+The checked-in profile denies `:root`, reopens `:minimal` read access, and keeps
+machine-specific absolute paths out of the
 portable baseline. The bootstrap helper may generate target-machine local
 entries in live `~/.codex/config.toml`:
 
@@ -116,9 +118,19 @@ Use `python` rather than `python3` on stock Windows unless `python3` is known to
 be configured. The `python3` launcher can be a Microsoft Store alias that exits
 before running the bootstrap helper.
 
-## 0.142.0 notes
+## 0.144.4 / GPT-5.6 notes
 
-- `gpt-5.5` is the current default model in this baseline.
+- `gpt-5.6-sol` is the current flagship default in this baseline. The migration
+  preserves medium reasoning effort as the first comparison point recommended by
+  the GPT-5.6 upgrade guidance.
+- `allow_login_shell = false` and `shell_environment_policy.inherit = "core"`
+  reduce ambient startup authority. Opt into broader shell behavior only for a
+  concrete trusted workflow.
+- Context7 is disabled in the base config and enabled only by the read-only
+  `research` profile with prompt-by-default tool approval.
+- External Browser Use, Computer Use, and automatic skill MCP dependency installs
+  are disabled by default. App tools prompt for writes, destructive tools are
+  disabled, and open-world app tools are disabled unless configured explicitly.
 - `features.tool_search` is removed in local `codex features list`; do not
   enable it in the portable baseline.
 - `features.terminal_resize_reflow` is removed in local `codex features list`;

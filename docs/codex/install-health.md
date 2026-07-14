@@ -32,11 +32,11 @@ The healthy state is:
 
 ## Preferred Fix
 
-Install the expected Codex CLI into the same npm prefix used by the active Node
-runtime:
+Install at least the version in `openai/dot-codex/compatibility.json` into the
+same npm prefix used by the active Node runtime:
 
 ```bash
-npm install -g @openai/codex@0.142.0
+npm install -g @openai/codex@0.144.4
 hash -r
 codex doctor --summary --no-color --ascii
 ```

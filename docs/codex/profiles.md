@@ -53,10 +53,11 @@ encoding, marshaling, and thread-safety work.
 Use when current documentation, standards, package behavior, or external
 evidence materially affects the answer.
 
-- Permissions: `agentcore_workspace`.
+- Permissions: read-only.
 - Web: live.
 - Reasoning: medium.
 - Verbosity: medium.
+- Context7 MCP: explicitly enabled with prompt-by-default tool approvals.
 - Expected output: cite sources and distinguish documented facts from inference.
 
 ## `readonly`
