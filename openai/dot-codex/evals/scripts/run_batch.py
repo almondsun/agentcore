@@ -42,7 +42,21 @@ def default_summary_path(run_date: str, automation_scope: str, results_dir: Path
         name = "batch-all-summary.json"
     else:
         name = "batch-summary.json"
-    return results_dir / run_date / name
+    root = results_dir.resolve()
+    candidate = root.joinpath(run_date, name).resolve()
+    if not candidate.is_relative_to(root):
+        raise ValueError(f"summary path escapes results root: {candidate}")
+    return candidate
+
+
+def validate_run_date(value: str) -> str:
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid --date {value!r}; expected YYYY-MM-DD") from exc
+    if parsed.isoformat() != value:
+        raise ValueError(f"Invalid --date {value!r}; expected YYYY-MM-DD")
+    return value
 
 
 def unique_case_ids(case_ids: list[str]) -> list[str]:
@@ -122,7 +136,10 @@ def case_paths(run_date: str, case_id: str, results_dir: Path) -> dict[str, Path
         "run_root": run_root,
         "workspace_path": run_root / "workspaces" / case_id,
         "prompt_path": run_root / f"{case_id}.prompt.txt",
-        "raw_output_path": run_root / f"{case_id}.raw.json",
+        "subject_output_path": run_root / f"{case_id}.subject.txt",
+        "trace_path": run_root / f"{case_id}.trace.jsonl",
+        "grader_prompt_path": run_root / f"{case_id}.grader.prompt.txt",
+        "grader_raw_path": run_root / f"{case_id}.grader.raw.json",
         "result_path": run_root / f"{case_id}.json",
     }
 
@@ -177,7 +194,10 @@ def run_case(
         "runner_exit_code": None,
         "compare_exit_code": None,
         "result_path": str(paths["result_path"]),
-        "raw_output_path": str(paths["raw_output_path"]),
+        "subject_output_path": str(paths["subject_output_path"]),
+        "trace_path": str(paths["trace_path"]),
+        "grader_prompt_path": str(paths["grader_prompt_path"]),
+        "grader_raw_path": str(paths["grader_raw_path"]),
         "prompt_path": str(paths["prompt_path"]),
         "workspace_path": str(paths["workspace_path"]),
         "baseline_path": str(baseline_path_for(case)) if compare else None,
@@ -214,7 +234,7 @@ def run_case(
 
     if dry_run:
         entry["status"] = "DRY-RUN"
-        entry["message"] = "prompt staged; codex exec not invoked"
+        entry["message"] = "blind prompt previewed; subject and grader not invoked"
         return entry
 
     result_path = paths["result_path"]
@@ -378,6 +398,10 @@ def main() -> int:
         help="Optional override for the results root directory. Default: ~/.codex/evals/results",
     )
     args = parser.parse_args()
+    try:
+        args.run_date = validate_run_date(args.run_date)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     automation_scope = "all" if args.all else "negative" if args.negative else "positive"
     compare = not args.no_compare and not args.dry_run

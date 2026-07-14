@@ -2,7 +2,7 @@
 
 Treat `ui_only.patch` as the full diff under review.
 
-This variant is used by `security-auditor` false-trigger evaluation.
+This variant is a low-risk control case for specialist-routing evaluation.
 
 What the diff intentionally includes:
 
@@ -22,5 +22,5 @@ What the diff intentionally does not include:
 What a strong run should do:
 
 - recognize that the changed surface is purely presentational
-- keep `security-auditor` out of the task or clearly secondary
+- avoid escalating to unrelated specialist workflows
 - avoid inventing trust-boundary, injection, path, or secret-handling risks

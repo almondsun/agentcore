@@ -17,7 +17,7 @@
 # Core model selection
 ################################################################################
 
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_provider = "openai"
 
 # Keep tone direct and engineering-focused.
@@ -27,7 +27,7 @@ personality = "pragmatic"
 # Reasoning and verbosity
 ################################################################################
 
-# Balanced default recommended for GPT-5.5.
+# Preserve the balanced GPT-5.5 baseline while migrating to GPT-5.6.
 model_reasoning_effort = "medium"
 
 # Keep planning at the same balanced default. Raise this in task-specific
@@ -50,8 +50,9 @@ model_verbosity = "low"
 # - dangerous or non-routine actions still require approval
 approval_policy = "on-request"
 
-# Allow login-shell semantics when needed by shell-based tools.
-allow_login_shell = true
+# Avoid profile scripts and other ambient login-shell startup behavior by
+# default. Trusted workflows can override this explicitly when required.
+allow_login_shell = false
 
 # Keep web lookup explicit. Use the research profile when current docs or live
 # web evidence materially affects the task.
@@ -105,6 +106,8 @@ extends = ":workspace"
 
 [permissions.agentcore_workspace.filesystem]
 glob_scan_max_depth = 4
+":root" = "deny"
+":minimal" = "read"
 
 [permissions.agentcore_workspace.filesystem.":workspace_roots"]
 "**/.env" = "deny"
@@ -121,7 +124,7 @@ glob_scan_max_depth = 4
 ################################################################################
 
 [shell_environment_policy]
-inherit = "all"
+inherit = "core"
 ignore_default_excludes = false
 
 # Add a few extra credential-like patterns beyond the built-in KEY/SECRET/TOKEN
@@ -153,15 +156,15 @@ status_line_use_colors = true
 [features]
 apps = true
 browser_use = true
-browser_use_external = true
-computer_use = true
+browser_use_external = false
+computer_use = false
 multi_agent = true
 personality = true
 hooks = true
 guardian_approval = true
 image_generation = true
 in_app_browser = true
-skill_mcp_dependency_install = true
+skill_mcp_dependency_install = false
 tool_suggest = true
 workspace_dependencies = true
 
@@ -184,9 +187,18 @@ disable_on_external_context = true
 
 [mcp_servers.openaiDeveloperDocs]
 url = "https://developers.openai.com/mcp"
+required = true
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
+enabled = false
+required = false
+default_tools_approval_mode = "prompt"
+
+[apps._default]
+default_tools_approval_mode = "writes"
+destructive_enabled = false
+open_world_enabled = false
 
 [agents.reviewer]
 description = "General code review specialist for correctness, regressions, compatibility, lifecycle/resource safety, maintainability, and test coverage."

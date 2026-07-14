@@ -18,7 +18,7 @@ This mirror intentionally keeps the parts of the Codex environment that are usef
 - `templates/`: reusable document templates
 - `evals/`: evaluation cases, fixtures, schemas, baselines, and scripts
 - `README.md`: environment-map documentation
-- `version.json`: lightweight environment metadata when useful for context
+- `compatibility.json`: maintained CLI/model compatibility contract for this baseline
 
 ## Intentionally excluded
 

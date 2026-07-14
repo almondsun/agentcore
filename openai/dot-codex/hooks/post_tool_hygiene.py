@@ -21,7 +21,7 @@ FAILURE_PATTERNS = [
 ]
 
 SECRET_PATTERNS = [
-    ("an OpenAI API key", re.compile(r"\bsk-(?:proj|live|test)?-[A-Za-z0-9_-]{20,}\b")),
+    ("an OpenAI API key", re.compile(r"\bsk-(?:(?:proj|live|test)-)?[A-Za-z0-9_-]{20,}\b")),
     ("a GitHub token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b")),
     ("an AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("a private key block", re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
@@ -131,21 +131,9 @@ def main() -> int:
             _message(f"secret-looking output ({label})")
             return 0
 
-    # Successful structured tool results can legitimately contain diagnostic
-    # examples, source code, diffs, or benign probe chatter with words such as
-    # "No such file or directory". Do not force the agent to explain those
-    # strings unless the tool result itself failed.
-    if _explicit_success(tool_response):
-        return 0
-
-    if not _should_scan_failure_phrases(payload, response_text):
-        return 0
-
-    failure_reason = _failure_reason_from_text(response_text)
-    if failure_reason:
-        _message(failure_reason)
-        return 0
-
+    # Tool output commonly contains source code, diffs, logs, and quoted error
+    # examples. Rely on structured failure fields instead of interpreting text;
+    # textual heuristics caused feedback loops while inspecting hook source.
     return 0
 
 

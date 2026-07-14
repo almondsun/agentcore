@@ -4,52 +4,52 @@
     {
       "case_id": "bv-api-boundary-positive",
       "mode": "patch-eval",
-      "task_file": "TASK.md",
+      "task_file": "API_REVIEW.md",
       "patch_file": "api_breaking_change.patch"
     },
     {
       "case_id": "or-current-diff-multi-angle-positive",
       "mode": "patch-eval",
-      "task_file": "TASK.md",
+      "task_file": "PATCH_REVIEW.md",
       "patch_file": "review_surface.patch"
     },
     {
       "case_id": "oi-bugfix-validate-positive",
       "mode": "repo-bugfix",
-      "task_file": "TASK.md"
+      "task_file": "BUGFIX.md"
     },
     {
       "case_id": "rv-regression-review-positive",
       "mode": "patch-eval",
-      "task_file": "TASK.md",
+      "task_file": "PATCH_REVIEW.md",
       "patch_file": "review_surface.patch"
     },
     {
       "case_id": "ia-ffi-boundary-positive",
       "mode": "patch-eval",
-      "task_file": "TASK.md",
+      "task_file": "PATCH_REVIEW.md",
       "patch_file": "ffi_boundary.patch"
     },
     {
       "case_id": "sa-parser-subprocess-positive",
       "mode": "patch-eval",
-      "task_file": "TASK.md",
+      "task_file": "PATCH_REVIEW.md",
       "patch_file": "review_surface.patch"
     },
     {
       "case_id": "wr-easy-local-bugfix",
       "mode": "repo-bugfix",
-      "task_file": "TASK.md"
+      "task_file": "SUBJECT.md"
     },
     {
       "case_id": "wr-medium-api-contract",
       "mode": "repo-bugfix",
-      "task_file": "TASK.md"
+      "task_file": "SUBJECT.md"
     },
     {
       "case_id": "wr-hard-security-audit",
       "mode": "repo-bugfix",
-      "task_file": "TASK.md"
+      "task_file": "SUBJECT.md"
     }
   ],
   "supported_negative_cases": [
@@ -76,7 +76,7 @@
     {
       "case_id": "sa-low-risk-ui-negative",
       "mode": "patch-eval",
-      "task_file": "UI_TASK.md",
+      "task_file": "UI_REVIEW.md",
       "patch_file": "ui_only.patch"
     }
   ]

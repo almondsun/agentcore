@@ -3,6 +3,11 @@
 `agentcore` stores a personal portable Codex baseline. It should not pretend to
 be the source of truth for enterprise-managed policy.
 
+The bootstrap records repository-owned tree entries in
+`~/.codex/agentcore-manifest.json`. Reconciliation removes only files previously
+installed by agentcore, preserving independently installed skills and local
+evaluation artifacts.
+
 ## What belongs here
 
 - portable `~/.codex/config.toml` defaults
@@ -31,3 +36,7 @@ managed policy.
 
 Keep local repo changes focused on portable defaults. Add managed-config
 examples only when they are generic and clearly marked as examples.
+
+Hooks and content scanners remain defense in depth. The permission profile,
+sandbox, app/MCP approval policy, and managed requirements are the enforcement
+layers; do not rely on regex-based hook blocking as the only control.

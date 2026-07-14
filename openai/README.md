@@ -29,7 +29,7 @@ It intentionally keeps only the durable configuration and evaluation surfaces th
 - `templates/`
 - `evals/`
 - `README.md`
-- `version.json` when helpful as environment context
+- `compatibility.json` as the maintained CLI/model compatibility contract
 
 It intentionally excludes local runtime state such as auth, history, sqlite state, caches, temporary files, shell snapshots, and local virtual environments.
 

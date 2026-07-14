@@ -12,8 +12,8 @@ from typing import Any
 
 
 DANGEROUS_COMMAND_PATTERNS = [
-    (r"(?i)(^|\s)rm\s+-[^\n;]*r[^\n;]*f[^\n;]*\s+/(?:\s|$)", "recursive removal of filesystem root"),
-    (r"(?i)(^|\s)rm\s+-[^\n;]*r[^\n;]*f[^\n;]*\s+\$?HOME(?:\s|/|$)", "recursive removal of the home directory"),
+    (r"(?i)(^|\s)rm\s+(?:-(?=[^\s;]*r)(?=[^\s;]*f)[^\s;]+|--recursive\s+--force|--force\s+--recursive)\s+(?:--\s+)?/(?:\s|$)", "recursive removal of filesystem root"),
+    (r"(?i)(^|\s)rm\s+(?:-(?=[^\s;]*r)(?=[^\s;]*f)[^\s;]+|--recursive\s+--force|--force\s+--recursive)\s+(?:--\s+)?\$?HOME(?:\s|/|$)", "recursive removal of the home directory"),
     (r"(?i)(^|\s)chmod\s+-R\s+777\s+/(?:\s|$)", "world-writable permissions on filesystem root"),
     (r"(?i)(^|\s)mkfs(?:\.[A-Za-z0-9_-]+)?\s+", "filesystem formatting"),
     (r"(?i)(^|\s)dd\s+.*\bof=/dev/(?:sd|nvme|vd|hd)", "raw write to a block device"),
@@ -21,7 +21,7 @@ DANGEROUS_COMMAND_PATTERNS = [
 ]
 
 SECRET_PATTERNS = [
-    ("an OpenAI API key", re.compile(r"\bsk-(?:proj|live|test)?-[A-Za-z0-9_-]{20,}\b")),
+    ("an OpenAI API key", re.compile(r"\bsk-(?:(?:proj|live|test)-)?[A-Za-z0-9_-]{20,}\b")),
     ("a GitHub token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b")),
     ("an AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("a private key block", re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
