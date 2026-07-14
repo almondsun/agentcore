@@ -29,21 +29,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install validation dependencies
-        run: python -m pip install --disable-pip-version-check pytest==9.1.1
+        run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
       - name: Parse and validate portable configuration
         run: python -B scripts/bootstrap_codex_environment.py --validate-only
       - name: Validate Codex compatibility contract
         run: python -B scripts/validate-compatibility.py
-      - name: Validate eval catalog and baselines
-        run: python -B openai/dot-codex/evals/scripts/eval_harness.py validate
+      - name: Validate custom skill integrity
+        run: python -B scripts/validate-skills.py
+      - name: Test custom skill validation
+        run: python -B scripts/test-validate-skills.py
       - name: Test bootstrap safety
         run: python -B scripts/test-bootstrap-config.py
       - name: Test hook protocols
         run: python -B scripts/test-codex-hooks.py
-      - name: Test eval runner invariants
-        run: python -B scripts/test-eval-runner.py
-      - name: Run fixture and live-task tests
-        run: python -B scripts/test-python-projects.py
       - name: Require a clean worktree after validation
         shell: bash
         run: git diff --exit-code && test -z "$(git status --short)"

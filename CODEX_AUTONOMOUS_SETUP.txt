@@ -82,8 +82,6 @@ Create these live directories when needed:
 - ~/.codex
 - ~/.codex/agents
 - ~/.codex/rules
-- ~/.codex/templates
-- ~/.codex/evals
 - ~/.agents
 - ~/.agents/skills
 
@@ -93,8 +91,6 @@ Copy these files or directories from the repo to the live locations:
 - openai/dot-codex/README.md -> ~/.codex/README.md
 - openai/dot-codex/agents/ -> ~/.codex/agents/
 - openai/dot-codex/rules/ -> ~/.codex/rules/
-- openai/dot-codex/templates/ -> ~/.codex/templates/
-- openai/dot-codex/evals/ -> ~/.codex/evals/
 - render openai/dot-codex/hooks.json -> ~/.codex/hooks.json by replacing
   both Python executable placeholders with the absolute current Python
   executable using platform-correct command quoting
@@ -109,8 +105,16 @@ first, then replace it with the repo baseline.
 
 Record repository-owned tree entries in ~/.codex/agentcore-manifest.json. On
 later runs, remove and back up only stale entries named by that manifest. Never
-delete unowned skills, local eval outputs, plugins, or other user-managed files
+delete unowned skills, plugins, or other user-managed files
 merely because they are absent from this repository.
+
+The formerly managed ~/.codex/evals and ~/.codex/templates trees are retired.
+When a valid version-1 manifest records files under those exact keys, back up
+and remove only those owned files. Preserve unowned siblings, never follow
+symlinked parents, and keep unresolved ownership entries for a safe retry. Do
+not recursively delete either live directory. If the platform cannot provide
+descriptor-relative no-follow unlinking, preserve the files and ownership
+entries instead.
 
 Do not copy these paths or patterns:
 
@@ -223,15 +227,16 @@ Validation
 After installation or merge, run the strongest local validation available:
 
 1. Parse ~/.codex/config.toml as TOML.
-2. Parse copied JSON files under ~/.codex/evals and the repository
-   openai/dot-codex/compatibility.json contract.
-3. Run with the target machine's working Python executable:
-   python3 -B ~/.codex/evals/scripts/eval_harness.py validate
-   if that script exists.
-   On Windows, use python and the target machine's home path convention.
+2. Parse the repository openai/dot-codex/compatibility.json contract and copied
+   managed JSON files.
+3. Run the repository skill integrity check with the target machine's working
+   Python executable:
+   python3 -m pip install -r requirements-validation.txt
+   python3 -B scripts/validate-skills.py
+   On Windows, use python.
 4. Compile copied hook scripts under ~/.codex/hooks when Python 3 is available.
-5. Run a search over ~/.codex and ~/.agents for accidentally copied forbidden
-   runtime files:
+5. Run a search over managed ~/.codex and ~/.agents paths for accidentally
+   copied forbidden runtime files:
    auth.json, history.jsonl, *.sqlite, *.sqlite-shm, *.sqlite-wal, logs,
    sessions, shell_snapshots, __pycache__, *.pyc, .tmp.
 6. Run a search for hard-coded paths from the source machine if the clone came

@@ -35,8 +35,6 @@ MANAGED_RELATIVE_DIRS = [
     Path('agents'),
     Path('hooks'),
     Path('rules'),
-    Path('templates'),
-    Path('evals'),
 ]
 SKIP_NAMES = {'__pycache__'}
 SKIP_SUFFIXES = {'.pyc', '.pyo'}

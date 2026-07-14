@@ -7,7 +7,7 @@ Use these commands to keep long-running agentcore work bounded and recoverable.
 - `/status`: confirm the active model, permission profile, sandbox state,
   writable roots, context, and usage before or after risky changes.
 - `/goal`: attach a concrete objective to a long task. Use it for migrations,
-  repo-wide cleanup, evaluation runs, or multi-turn remediation.
+  repo-wide cleanup, long validation runs, or multi-turn remediation.
 - `/compact`: summarize a long thread after major evidence or validation
   milestones. Preserve completed actions, active assumptions, blockers, and the
   next command.
