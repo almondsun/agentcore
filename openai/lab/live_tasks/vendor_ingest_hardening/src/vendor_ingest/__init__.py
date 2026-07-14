@@ -1,1 +1,0 @@
-"""Vendor bundle ingestion helpers."""

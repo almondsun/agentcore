@@ -2,7 +2,7 @@
 
 `dot-codex/` is a sanitized mirror of the durable, human-managed parts of the Codex home directory.
 
-It exists to preserve the configuration and evaluation surfaces that are worth migrating or reviewing, without bundling the private and machine-local runtime state that accumulates in a live `~/.codex` directory.
+It exists to preserve configuration worth migrating or reviewing, without bundling the private and machine-local runtime state that accumulates in a live `~/.codex` directory.
 
 ## Included here
 
@@ -15,8 +15,6 @@ This mirror intentionally keeps the parts of the Codex environment that are usef
 - `hooks.json` and `hooks/`: deterministic lifecycle guardrails for prompt
   secret scanning, high-risk approval annotation, and validation closeout nudges
 - `rules/`: durable rule files
-- `templates/`: reusable document templates
-- `evals/`: evaluation cases, fixtures, schemas, baselines, and scripts
 - `README.md`: environment-map documentation
 - `compatibility.json`: maintained CLI/model compatibility contract for this baseline
 
@@ -43,7 +41,7 @@ They live in the sibling [dot-agents](../dot-agents/README.md) subtree, which mi
 
 Use this split:
 
-- `dot-codex/` for durable Codex-managed configuration and evaluation assets
+- `dot-codex/` for durable Codex-managed configuration
 - `dot-agents/` for user-authored skills and related custom behavior
 
 ## Migration guidance

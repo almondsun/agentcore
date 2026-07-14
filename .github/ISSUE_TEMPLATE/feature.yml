@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose a durable configuration, skill, eval, or workflow improvement.
+description: Propose a durable configuration, skill, or workflow improvement.
 title: "feature: "
 labels: [enhancement]
 body:
@@ -21,4 +21,4 @@ body:
     id: evidence
     attributes:
       label: Evidence and validation
-      description: Link relevant official guidance, failures, or representative eval cases.
+      description: Link relevant official guidance, failures, or real-task evidence.

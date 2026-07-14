@@ -6,12 +6,17 @@ be the source of truth for enterprise-managed policy.
 The bootstrap records repository-owned tree entries in
 `~/.codex/agentcore-manifest.json`. Reconciliation removes only files previously
 installed by agentcore, preserving independently installed skills and local
-evaluation artifacts.
+files. Retired managed trees are reconciled from this ownership record without
+deleting unowned content.
+
+Retirement requires descriptor-relative, no-follow file operations. On a
+platform that cannot provide those guarantees, bootstrap preserves the files
+and ownership entries instead of attempting deletion.
 
 ## What belongs here
 
 - portable `~/.codex/config.toml` defaults
-- reusable agents, skills, hooks, rules, templates, and eval assets
+- reusable agents, skills, hooks, and rules
 - documentation for how the portable baseline interacts with managed policy
 - validation that reports policy conflicts clearly
 

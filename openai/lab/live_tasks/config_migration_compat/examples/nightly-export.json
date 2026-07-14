@@ -1,6 +1,0 @@
-{
-  "job_name": "nightly-export",
-  "source": "warehouse",
-  "retries": 3,
-  "timeout_seconds": 30
-}
