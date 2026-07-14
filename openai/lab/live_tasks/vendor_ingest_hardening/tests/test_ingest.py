@@ -86,7 +86,7 @@ def test_scan_staged_bundle_invokes_runner() -> None:
         "--bundle",
         "nightly-drop\nforged",
         "--staging-dir",
-        "/tmp/staging",
+        str(Path("/tmp/staging")),
     ]
     assert captured["kwargs"]["shell"] is False
     assert captured["kwargs"]["env"][SCAN_TOKEN_ENV_VAR] == "secret-token"
