@@ -461,7 +461,7 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
                 manifest.chmod(0o666)
                 self.assertEqual(
                     self.bootstrap.load_install_manifest_state(),
-                    ({}, False),
+                    ({}, self.bootstrap.os.name != "posix"),
                 )
                 manifest.chmod(0o600)
                 with mock.patch.object(self.bootstrap, "MAX_MANIFEST_BYTES", 1):
