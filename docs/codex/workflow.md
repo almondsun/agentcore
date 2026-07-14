@@ -7,7 +7,7 @@ scripts/validate-codex.sh
 ```
 
 This runs `codex doctor`, bootstrap validation, TOML parsing, Codex compatibility
-and feature checks, semantic eval-catalog validation, live-vs-mirror drift checks,
+and feature checks, static custom-skill validation, live-vs-mirror drift checks,
 branch sync checks, bootstrap and hook regression tests, and a strict
 non-interactive Codex config load.
 

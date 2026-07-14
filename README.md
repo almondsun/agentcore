@@ -1,13 +1,11 @@
 # agentcore
 
-`agentcore` is a personal, migration-friendly workspace for durable AI-agent configuration, evaluation assets, and real-task verification material.
+`agentcore` is a personal, migration-friendly workspace for durable OpenAI Codex configuration and custom skills.
 
 This repository is meant to preserve the parts of an agent setup that are worth versioning:
 
 - human-managed agent configuration and policy
 - custom agent skills and workflow extensions
-- durable evaluation assets
-- reusable task sandboxes and notes
 - documentation about how the environment is organized
 
 It is not intended to be a raw home-directory backup.
@@ -24,19 +22,15 @@ baseline. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 ```text
 .
 ├── .github/
-├── openai/
-│   ├── dot-codex/
-│   ├── dot-agents/
-│   └── lab/
-└── anthropic/
+└── openai/
+    ├── dot-codex/
+    └── dot-agents/
 ```
 
 What each area means:
 
 - `openai/dot-codex/`: sanitized mirror of the durable, human-managed parts of `~/.codex`.
 - `openai/dot-agents/`: mirror of custom user-managed Codex skills from `~/.agents`.
-- `openai/lab/`: durable evaluation and live-task workspace for OpenAI Codex-related work.
-- `anthropic/`: reserved space for future Anthropic-specific configuration and evaluation assets.
 
 ## What is intentionally included
 
@@ -46,10 +40,8 @@ The OpenAI subtree keeps the durable pieces that are useful to migrate, review, 
 - `config.toml`
 - top-level Codex profile files such as `review.config.toml`
 - agent definition files
-- rules and templates
-- evaluation harness inputs and scripts
+- rules and lifecycle hooks
 - custom skills from `~/.agents`
-- the durable lab workspace
 
 ## What is intentionally excluded
 
@@ -67,6 +59,14 @@ This repository deliberately excludes local-only and sensitive state, including:
 - repo-local `.codex` sentinels from unrelated task repositories
 
 If you need any of those for debugging, keep them local and out of version control.
+
+## Real-task validation
+
+Validate agent behavior in the actual repository where the work happens, using
+that repository's instructions, tests, review process, and security boundaries.
+`agentcore` validates the portable configuration and static integrity of its
+skills; it does not store synthetic scorecards, task specimens, or run results.
+Keep disposable experiments and generated evidence outside this repository.
 
 ## Migration intent
 
@@ -152,6 +152,5 @@ Before publishing updates, review changes for:
 - secrets or auth state
 - private transcripts or snapshots
 - machine-specific paths you do not want public
-- live-task repositories that should remain private
 
 This repo should read like a curated workbench, not a raw workstation dump.

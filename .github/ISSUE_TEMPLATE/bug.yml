@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible configuration, bootstrap, hook, or evaluation defect.
+description: Report a reproducible configuration, bootstrap, hook, or skill defect.
 title: "bug: "
 labels: [bug]
 body:

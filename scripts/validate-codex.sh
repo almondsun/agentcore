@@ -122,8 +122,11 @@ if bad_unstable:
 print('ok no enabled removed/deprecated/unstable features')
 PYFEATURES
 
-echo "== eval catalog and baseline validation =="
-python3 -B openai/dot-codex/evals/scripts/eval_harness.py validate
+echo "== custom skill integrity =="
+python3 -B scripts/validate-skills.py
+
+echo "== custom skill validator regression tests =="
+python3 -B scripts/test-validate-skills.py
 
 echo "== mirror drift check =="
 python3 -B scripts/check_codex_mirror.py
@@ -142,12 +145,6 @@ python3 -B scripts/test-bootstrap-config.py
 
 echo "== hook regression tests =="
 python3 -B scripts/test-codex-hooks.py
-
-echo "== eval runner regression tests =="
-python3 -B scripts/test-eval-runner.py
-
-echo "== fixture and live-task tests =="
-python3 -B scripts/test-python-projects.py
 
 echo "== strict codex config load =="
 codex exec --strict-config --json --config default_permissions='":read-only"' --skip-git-repo-check --cd "$repo_root" "$strict_prompt" >"$strict_output"
