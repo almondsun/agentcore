@@ -95,16 +95,22 @@ Copy these files or directories from the repo to the live locations:
 - openai/dot-codex/rules/ -> ~/.codex/rules/
 - openai/dot-codex/templates/ -> ~/.codex/templates/
 - openai/dot-codex/evals/ -> ~/.codex/evals/
-- openai/dot-codex/hooks.json -> ~/.codex/hooks.json
+- render openai/dot-codex/hooks.json -> ~/.codex/hooks.json by replacing
+  both Python executable placeholders with the absolute current Python
+  executable using platform-correct command quoting
 - openai/dot-codex/hooks/ -> ~/.codex/hooks/
-- openai/dot-codex/version.json -> ~/.codex/version.json, only when no live
-  version.json exists or when the repo version is newer after normal version
-  comparison
+- openai/dot-codex/compatibility.json remains repository metadata; Codex owns
+  live ~/.codex/version.json runtime/update state
 - openai/dot-agents/README.md -> ~/.agents/README.md
 - openai/dot-agents/skills/ -> ~/.agents/skills/
 
 For ordinary files in those directories, if the live file differs, back it up
 first, then replace it with the repo baseline.
+
+Record repository-owned tree entries in ~/.codex/agentcore-manifest.json. On
+later runs, remove and back up only stale entries named by that manifest. Never
+delete unowned skills, local eval outputs, plugins, or other user-managed files
+merely because they are absent from this repository.
 
 Do not copy these paths or patterns:
 
@@ -136,13 +142,11 @@ Config merge contract
 
 Handle ~/.codex/config.toml specially.
 
-If no live ~/.codex/config.toml exists:
-
-1. Copy openai/dot-codex/config.toml to ~/.codex/config.toml.
-2. Do not invent trusted project paths.
-3. Do not invent writable roots.
-4. Do not enable plugins unless they are already installed and discoverable on
-   this machine.
+If no live ~/.codex/config.toml exists, start from the portable baseline and
+generate only the target-machine entries listed below: the current agentcore
+checkout trust record, ~/.codex/tmp workspace root, and narrow runtime/skill read
+grants that resolve on this machine. Do not invent trust or write access for any
+other project.
 
 If live ~/.codex/config.toml exists:
 
@@ -216,7 +220,8 @@ Validation
 After installation or merge, run the strongest local validation available:
 
 1. Parse ~/.codex/config.toml as TOML.
-2. Parse copied JSON files under ~/.codex/evals and ~/.codex/version.json.
+2. Parse copied JSON files under ~/.codex/evals and the repository
+   openai/dot-codex/compatibility.json contract.
 3. Run with the target machine's working Python executable:
    python3 -B ~/.codex/evals/scripts/eval_harness.py validate
    if that script exists.
@@ -227,7 +232,8 @@ After installation or merge, run the strongest local validation available:
    auth.json, history.jsonl, *.sqlite, *.sqlite-shm, *.sqlite-wal, logs,
    sessions, shell_snapshots, __pycache__, *.pyc, .tmp.
 6. Run a search for hard-coded paths from the source machine if the clone came
-   from a different machine. At minimum search for /home/mitin and /home/marti.
+   from a different machine. Search for the source account's home directory and
+   any machine-specific checkout roots.
 7. Confirm codex is available with:
    codex --version
    if the binary exists.

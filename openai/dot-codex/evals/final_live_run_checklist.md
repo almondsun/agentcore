@@ -61,7 +61,7 @@ codex --version
 Run from any writable working directory:
 
 ```bash
-codex exec --skip-git-repo-check --ephemeral --color never --sandbox read-only -c 'approval_policy="never"' -
+codex exec --skip-git-repo-check --ephemeral --color never -c 'approval_policy="never"' -c 'default_permissions=":read-only"' -
 ```
 
 Then provide this input:

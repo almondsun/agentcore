@@ -9,8 +9,8 @@ import sys
 
 
 DENY_PATTERNS = [
-    (r"(?i)(^|\s)rm\s+-[^\n;]*r[^\n;]*f[^\n;]*\s+/(?:\s|$)", "recursive removal of filesystem root"),
-    (r"(?i)(^|\s)rm\s+-[^\n;]*r[^\n;]*f[^\n;]*\s+\$?HOME(?:\s|/|$)", "recursive removal of the home directory"),
+    (r"(?i)(^|\s)rm\s+(?:-(?=[^\s;]*r)(?=[^\s;]*f)[^\s;]+|--recursive\s+--force|--force\s+--recursive)\s+(?:--\s+)?/(?:\s|$)", "recursive removal of filesystem root"),
+    (r"(?i)(^|\s)rm\s+(?:-(?=[^\s;]*r)(?=[^\s;]*f)[^\s;]+|--recursive\s+--force|--force\s+--recursive)\s+(?:--\s+)?\$?HOME(?:\s|/|$)", "recursive removal of the home directory"),
     (r"(?i)(^|\s)chmod\s+-R\s+777\s+/(?:\s|$)", "world-writable permissions on filesystem root"),
     (r"(?i)(^|\s)mkfs(?:\.[A-Za-z0-9_-]+)?\s+", "filesystem formatting"),
     (r"(?i)(^|\s)dd\s+.*\bof=/dev/(?:sd|nvme|vd|hd)", "raw write to a block device"),

@@ -1,0 +1,5 @@
+* @almondsun
+/.github/ @almondsun
+/openai/dot-codex/hooks/ @almondsun
+/openai/dot-codex/rules/ @almondsun
+/scripts/bootstrap_codex_environment.py @almondsun

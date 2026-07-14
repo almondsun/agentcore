@@ -2,22 +2,24 @@
 """
 Run a small supported subset of automated eval cases via `codex exec`.
 
-The runner is intentionally narrow:
-- supports a few positive fixture-backed cases
-- supports a few prompt-only or fixture-backed negative false-trigger cases
-- stages each run into a disposable workspace
-- uses `--output-schema` for a structured final message
-- writes a comparable result record plus raw final-message JSON
+The runner keeps the subject prompt blind to the rubric, captures a JSONL trace,
+collects deterministic workspace/test evidence, and uses a separate grading turn
+to produce the comparable result record.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
+import difflib
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
+import tomllib
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +45,20 @@ def utc_now_iso() -> str:
 
 def load_text(path: Path) -> str:
     return path.read_text()
+
+
+def write_text_atomic(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, delete=False
+    ) as handle:
+        handle.write(content)
+        temporary = Path(handle.name)
+    os.replace(temporary, path)
+
+
+def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    write_text_atomic(path, json.dumps(value, indent=2) + "\n")
 
 
 def build_codex_exec_env() -> dict[str, str]:
@@ -262,11 +278,14 @@ def normalize_observed_validation(
 
 
 def stage_workspace(source: Path, destination: Path, force: bool) -> None:
+    symlinks = [path for path in source.rglob("*") if path.is_symlink()]
+    if symlinks:
+        raise ValueError(f"Fixture contains unsupported symlink: {symlinks[0]}")
     if destination.exists():
         if not force:
             raise FileExistsError(f"Workspace already exists: {destination}")
         shutil.rmtree(destination)
-    shutil.copytree(source, destination)
+    shutil.copytree(source, destination, symlinks=True)
 
 
 def prepare_empty_workspace(destination: Path, force: bool) -> None:
@@ -277,254 +296,205 @@ def prepare_empty_workspace(destination: Path, force: bool) -> None:
     destination.mkdir(parents=True, exist_ok=True)
 
 
-def build_prompt(
-    case: dict[str, Any],
-    automation: dict[str, Any],
-    workspace: Path,
-    runtime_facts: dict[str, str] | None = None,
-) -> str:
-    fixture_ref = case["fixture_ref"]
+def validate_run_date(value: str) -> str:
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid --date {value!r}; expected YYYY-MM-DD") from exc
+    if parsed.isoformat() != value:
+        raise ValueError(f"Invalid --date {value!r}; expected YYYY-MM-DD")
+    return value
+
+
+def contained_child(root: Path, *parts: str) -> Path:
+    resolved_root = root.resolve()
+    candidate = resolved_root.joinpath(*parts).resolve()
+    if not candidate.is_relative_to(resolved_root):
+        raise ValueError(f"Run artifact path escapes results root: {candidate}")
+    return candidate
+
+
+def build_blind_prompt(case: dict[str, Any], automation: dict[str, Any]) -> str:
+    """Build the subject prompt without expected answers, rubrics, or outcome labels."""
+
     _, fixture_catalog = load_fixture_catalog()
-    fixture = fixture_catalog[fixture_ref]
+    fixture = fixture_catalog[case["fixture_ref"]]
     fixture_root = ROOT / fixture["path"]
-
-    task_path = fixture_root / automation["task_file"]
-    task_text = load_text(task_path).strip()
-
-    prompt_lines = [
-        "You are running one local Codex eval harness case.",
-        "Return only one JSON object that matches the provided output schema.",
-        "Do not wrap the JSON in markdown fences.",
-        "Use short stable tokens in observed_subagents, observed_validation, and observed_fail_signals.",
-        "Use outcome=pass only when the case contract is satisfied; use partial or fail otherwise.",
-        "",
-        f"case_id: {case['id']}",
-        f"workflow: {case['_workflow']}",
-        f"fixture_ref: {fixture_ref}",
-        f"workspace_root: {workspace}",
-        "",
-        *(
+    task_text = load_text(fixture_root / automation["task_file"]).strip()
+    lines = [case["prompt"].strip(), "", task_text, ""]
+    if automation["mode"] == "patch-eval":
+        patch_text = load_text(fixture_root / automation["patch_file"]).strip()
+        lines.extend(
             [
-                "Runtime facts gathered by the runner before this Codex session:",
-                json.dumps(runtime_facts, indent=2),
-                "",
-            ]
-            if runtime_facts is not None
-            else []
-        ),
-        "Case JSON:",
-        json.dumps(
-            {
-                "id": case["id"],
-                "workflow": case["_workflow"],
-                "title": case["title"],
-                "goal": case["goal"],
-                "setup": case["setup"],
-                "prompt": case["prompt"],
-                "expected_subagents": case.get("expected_subagents", []),
-                "forbidden_subagents": case.get("forbidden_subagents", []),
-                "expected_output_shape": case["expected_output_shape"],
-                "expected_safety_behavior": case["expected_safety_behavior"],
-                "expected_validation_behavior": case["expected_validation_behavior"],
-                "pass_criteria": case["pass_criteria"],
-                "fail_signals": case["fail_signals"],
-            },
-            indent=2,
-        ),
-        "",
-        f"Fixture task file: {automation['task_file']}",
-        task_text,
-        "",
-    ]
-
-    mode = automation["mode"]
-    if mode == "patch-eval":
-        patch_path = fixture_root / automation["patch_file"]
-        patch_text = load_text(patch_path).strip()
-        if case["mode"] == "subagent":
-            instruction_lines = [
-                "- Treat the patch text above as the only changed surface under evaluation.",
-                "- Read the task file and patch before answering.",
-                "- Do not modify files in the workspace.",
-                f"- Evaluate only the named specialist under test: {case['_workflow']}.",
-                "- Do not turn this into multi-agent orchestration, implementation planning, or validation-first output.",
-                "- observed_subagents should include only the specialist under test unless the case explicitly justifies more.",
-                "- Record observed behavior as short stable tokens such as findings:first, focus:regression-before-style, boundary:ownership-called-out, security:parser-risk-called-out, uncertainty:carried-forward.",
-            ]
-        else:
-            instruction_lines = [
-                "- Treat the patch text above as the only changed surface under evaluation.",
-                "- Read the task file and patch before answering.",
-                "- Do not modify files in the workspace.",
-                "- Record observed behavior as short stable tokens such as scope:escalated, command:pytest, findings:first, findings:deduplicated, uncertainty:carried-forward.",
-            ]
-        prompt_lines.extend(
-            [
-                f"Patch file: {automation['patch_file']}",
+                "Changed patch:",
                 patch_text,
                 "",
-                "Instructions:",
-                *instruction_lines,
+                "Treat the patch as the changed surface. Do not modify the workspace.",
+                "Return the normal user-facing review or answer.",
             ]
         )
-    elif mode == "repo-bugfix":
-        instruction_lines = [
-            "Instructions:",
-            "- The current workspace is a disposable copy of the fixture repo.",
-            "- Inspect the repo before editing.",
-            "- Implement the requested bugfix in this disposable workspace.",
-            "- Run the smallest correct validation path you can justify.",
-            "- Treat the runtime facts provided above as authoritative for this session unless direct shell evidence in this same session contradicts them.",
-            "- Prefer `python -m pytest` for pytest-based validation so the active interpreter is unambiguous.",
-            "- Do not report pytest as missing when the authoritative runtime facts already show a working pytest version.",
-            "- Record observed behavior as short stable tokens such as context:repo-inspected, implementation:main-agent, validation-skill:build-validate, command:pytest.",
-        ]
-        if case["id"] == "wr-medium-api-contract":
-            instruction_lines.extend(
-                [
-                    "- Repo inspection and pr-explorer are preparatory only; they do not satisfy this case by themselves.",
-                    "- Do not stop after exploration. This case is incomplete unless you implement the contract change, run pytest-based validation, and describe the compatibility impact in the final notes.",
-                    '- If you do not implement the change, do not run pytest, or do not provide the final compatibility report, set outcome=\"fail\" rather than partial and include fail signals such as no-implementation, no-pytest, and no-final-report when applicable.',
-                ]
-            )
-        if case["id"] == "wr-hard-security-audit":
-            instruction_lines.extend(
-                [
-                    "- This case is not complete after validation alone; you must perform a justified post-change security audit and include a final user-facing closeout in notes.",
-                    "- If the post-change audit finds unresolved security issues, set outcome=\"fail\" rather than partial or pass, list the audit findings in observed_fail_signals, and explain the residual risk in notes.",
-                    "- If you do not implement the hardening, do not run validation, do not perform the required security audit, or do not provide the final closeout, set outcome=\"fail\" and include matching fail signals.",
-                ]
-            )
-        prompt_lines.extend(instruction_lines)
+    elif automation["mode"] == "repo-bugfix":
+        lines.extend(
+            [
+                "Work in the current disposable workspace. Inspect it, make the requested change,",
+                "run the repository-native validation, and return a normal user-facing closeout.",
+            ]
+        )
     else:
-        raise ValueError(f"Unsupported automation mode: {mode}")
-
-    prompt_lines.extend(
-        [
-            "",
-            "Required output fields:",
-            '- schema_version: use "2"',
-            f'- case_id: use "{case["id"]}"',
-            f'- workflow: use "{case["_workflow"]}"',
-            f'- fixture_ref: use "{fixture_ref}"',
-            '- outcome: "pass", "partial", or "fail"',
-            "- observed_subagents: short strings only",
-            "- observed_validation: short strings only",
-            "- observed_fail_signals: short strings only",
-            "- notes: short plain-English explanation",
-            "- rubric: use booleans or nulls for trigger_match, output_shape_ok, safety_ok, validation_ok",
-        ]
-    )
-    return "\n".join(prompt_lines) + "\n"
+        raise ValueError(f"Unsupported automation mode: {automation['mode']}")
+    return "\n".join(lines).strip() + "\n"
 
 
-def build_false_trigger_prompt(
-    case: dict[str, Any],
-    workspace: Path,
-    automation: dict[str, Any] | None = None,
+def build_blind_negative_prompt(
+    case: dict[str, Any], automation: dict[str, Any] | None
 ) -> str:
-    fixture_ref = case.get("fixture_ref")
-    prompt_lines = [
-        "You are running one local Codex eval harness false-trigger case.",
-        "The named workflow below should not trigger as the primary path for the task.",
-        "Return only one JSON object that matches the provided false-trigger output schema.",
-        "Do not wrap the JSON in markdown fences.",
-        "Use short stable tokens in unexpected_subagents, unexpected_validation, and fail_signals.",
-        "",
-        f"case_id: {case['id']}",
-        f"workflow_under_test: {case['_workflow']}",
-        "expected_should_trigger: false",
-        *([f"fixture_ref: {fixture_ref}"] if fixture_ref else []),
-        f"workspace_root: {workspace}",
-        "",
-        "Case JSON:",
-        json.dumps(
-            {
-                "id": case["id"],
-                "workflow": case["_workflow"],
-                "mode": case["mode"],
-                "title": case["title"],
-                "goal": case["goal"],
-                "setup": case["setup"],
-                "prompt": case["prompt"],
-                "expected_subagents": case.get("expected_subagents", []),
-                "forbidden_subagents": case.get("forbidden_subagents", []),
-                "expected_output_shape": case["expected_output_shape"],
-                "expected_safety_behavior": case["expected_safety_behavior"],
-                "expected_validation_behavior": case["expected_validation_behavior"],
-                "pass_criteria": case["pass_criteria"],
-                "fail_signals": case["fail_signals"],
-            },
-            indent=2,
-        ),
-        "",
-        "Behavior scale:",
-        '- actual_trigger_behavior: "not_triggered", "secondary_only", "partial_trigger", or "primary_trigger"',
-        '- outcome: "pass" when the workflow stays out of the task or remains clearly secondary; "partial" when it starts to overtake; "fail" when it becomes the primary response.',
-        "",
-    ]
+    """Build a natural task prompt without naming the workflow being tested."""
 
+    lines = [case["prompt"].strip(), ""]
+    fixture_ref = case.get("fixture_ref")
     if automation is not None and automation["mode"] == "patch-eval":
         assert fixture_ref is not None
         _, fixture_catalog = load_fixture_catalog()
-        fixture = fixture_catalog[fixture_ref]
-        fixture_root = ROOT / fixture["path"]
-        task_path = fixture_root / automation["task_file"]
-        patch_path = fixture_root / automation["patch_file"]
-        prompt_lines.extend(
+        fixture_root = ROOT / fixture_catalog[fixture_ref]["path"]
+        lines.extend(
             [
-                f"Fixture task file: {automation['task_file']}",
-                load_text(task_path).strip(),
+                load_text(fixture_root / automation["task_file"]).strip(),
                 "",
-                f"Patch file: {automation['patch_file']}",
-                load_text(patch_path).strip(),
+                "Changed patch:",
+                load_text(fixture_root / automation["patch_file"]).strip(),
                 "",
-                "Instructions:",
-                "- Treat the patch text above as the only changed surface under evaluation.",
-                "- Read the task file and patch before answering.",
-                "- Do not modify files in the workspace.",
-                f"- Judge whether the named workflow or specialist should stay out of this changed surface: {case['_workflow']}.",
-                "- If the changed surface does not justify that workflow or specialist, prefer actual_trigger_behavior=not_triggered.",
-                "- Do not invent specialist-specific concerns that are unsupported by the patch.",
-                "- Record only unexpected workflow behavior in unexpected_subagents and unexpected_validation.",
-                "- unexpected_subagents should list wrongly-triggered specialists or explorers such as pr-explorer, reviewer, security-auditor, or interop-auditor.",
-                "- unexpected_validation should list only validation-first or implementation-first behavior that should not have happened, such as validation:first, validation:commands-listed, implementation:planned, findings:first.",
-                "- fail_signals should list only clear false-trigger failures such as workflow:hijacked-task, shape:implementation-plan, shape:review-orchestration, specialist:interop-primary, or specialist:security-primary.",
+                "Respond naturally to the request. Do not modify the workspace.",
             ]
         )
-    else:
-        prompt_lines.extend(
-            [
-                "Instructions:",
-                "- Judge whether the named workflow or specialist would wrongly take over this task.",
-                "- Do not fabricate repo inspection, file edits, or validation runs.",
-                "- If the best behavior is to route elsewhere, reflect that with actual_trigger_behavior=not_triggered or secondary_only.",
-                "- Record only unexpected workflow behavior in unexpected_subagents and unexpected_validation.",
-                "- unexpected_subagents should list wrongly-triggered specialists or explorers such as pr-explorer, reviewer, security-auditor, or interop-auditor.",
-                "- unexpected_validation should list only validation-first or implementation-first behavior that should not have happened, such as validation:first, validation:commands-listed, implementation:planned, findings:first.",
-                "- fail_signals should list only clear false-trigger failures such as workflow:hijacked-task, shape:implementation-plan, shape:review-orchestration, specialist:interop-primary.",
-            ]
-        )
+    return "\n".join(lines).strip() + "\n"
 
-    prompt_lines.extend(
-        [
-            "",
-            "Required output fields:",
-            '- schema_version: use "1"',
-            f'- case_id: use "{case["id"]}"',
-            f'- workflow: use "{case["_workflow"]}"',
-            *([f'- fixture_ref: use "{fixture_ref}"'] if fixture_ref else []),
-            "- expected_should_trigger: use false",
-            '- actual_trigger_behavior: one of "not_triggered", "secondary_only", "partial_trigger", "primary_trigger"',
-            '- outcome: "pass", "partial", or "fail"',
-            "- unexpected_subagents: short strings only",
-            "- unexpected_validation: short strings only",
-            "- fail_signals: short strings only",
-            "- notes: short plain-English explanation",
-            "- rubric: use booleans or nulls for trigger_match, output_shape_ok, task_focus_ok, safety_ok",
-        ]
+
+def snapshot_workspace(root: Path) -> dict[str, str]:
+    snapshot: dict[str, str] = {}
+    total_bytes = 0
+    for path in sorted(root.rglob("*")):
+        try:
+            metadata = path.lstat()
+        except OSError:
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            continue
+        rel = path.relative_to(root)
+        if set(rel.parts) & {".git", ".pytest_cache", "__pycache__"}:
+            continue
+        if metadata.st_size > 1_000_000 or total_bytes + metadata.st_size > 5_000_000:
+            snapshot[str(rel)] = f"<omitted:{metadata.st_size}-bytes>"
+            continue
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(path, flags)
+        except OSError:
+            continue
+        try:
+            opened = os.fstat(descriptor)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_size != metadata.st_size:
+                continue
+            raw = os.read(descriptor, metadata.st_size + 1)
+        finally:
+            os.close(descriptor)
+        if len(raw) > metadata.st_size:
+            snapshot[str(rel)] = "<omitted:changed-during-read>"
+            continue
+        try:
+            snapshot[str(rel)] = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            snapshot[str(rel)] = f"<binary:{metadata.st_size}>"
+        total_bytes += metadata.st_size
+    return snapshot
+
+
+def workspace_diff(before: dict[str, str], after: dict[str, str]) -> str:
+    chunks: list[str] = []
+    for name in sorted(set(before) | set(after)):
+        old = before.get(name, "")
+        new = after.get(name, "")
+        if old == new:
+            continue
+        chunks.extend(
+            difflib.unified_diff(
+                old.splitlines(),
+                new.splitlines(),
+                fromfile=f"before/{name}",
+                tofile=f"after/{name}",
+                lineterm="",
+            )
+        )
+    text = "\n".join(chunks)
+    return text[-30000:] if text else "<no workspace changes>"
+
+
+def run_independent_validation(workspace: Path, mode: str) -> str:
+    if mode != "repo-bugfix":
+        return "<not applicable for read-only patch/prompt case>"
+    checked = 0
+    failures: list[str] = []
+    for path in sorted(workspace.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        rel = path.relative_to(workspace)
+        if set(rel.parts) & {".git", ".pytest_cache", "__pycache__"}:
+            continue
+        if path.stat().st_size > 1_000_000:
+            failures.append(f"{rel}: skipped because file exceeds 1 MB")
+            continue
+        try:
+            if path.suffix == ".py":
+                ast.parse(path.read_text(encoding="utf-8"), filename=str(rel))
+            elif path.suffix == ".json":
+                json.loads(path.read_text(encoding="utf-8"))
+            elif path.suffix == ".toml":
+                tomllib.loads(path.read_text(encoding="utf-8"))
+            else:
+                continue
+            checked += 1
+        except (OSError, UnicodeError, SyntaxError, ValueError) as exc:
+            failures.append(f"{rel}: {type(exc).__name__}: {exc}")
+    status = "ok" if not failures else "failed"
+    details = "\n".join(failures) if failures else "no parse failures"
+    return f"static_parse_status={status}\nfiles_checked={checked}\n{details}"
+
+
+def build_grader_prompt(
+    case: dict[str, Any],
+    subject_message: str,
+    trace: str,
+    diff: str,
+    validation: str,
+    *,
+    negative: bool,
+) -> str:
+    evidence = {
+        "subject_final_message": subject_message,
+        "trace_tail": trace[-30000:],
+        "workspace_diff": diff,
+        "independent_validation": validation,
+    }
+    expected = {
+        "case_id": case["id"],
+        "workflow": case["_workflow"],
+        "fixture_ref": case.get("fixture_ref"),
+        "expected_subagents": case.get("expected_subagents", []),
+        "forbidden_subagents": case.get("forbidden_subagents", []),
+        "expected_output_shape": case["expected_output_shape"],
+        "expected_safety_behavior": case["expected_safety_behavior"],
+        "expected_validation_behavior": case["expected_validation_behavior"],
+        "pass_criteria": case["pass_criteria"],
+        "fail_signals": case["fail_signals"],
+    }
+    mode = "false-trigger" if negative else "positive"
+    return (
+        f"You are the independent grader for one {mode} Codex evaluation.\n"
+        "The subject never saw this rubric. Grade only the supplied trace, diff, validation, and final message.\n"
+        "Do not infer tool calls, edits, tests, or subagents that are absent from evidence.\n"
+        "Return exactly the JSON required by the output schema, using short stable observation tokens.\n\n"
+        f"Expected contract:\n{json.dumps(expected, indent=2)}\n\n"
+        f"Observed evidence:\n{json.dumps(evidence, indent=2)}\n"
     )
-    return "\n".join(prompt_lines) + "\n"
 
 
 def build_result(raw_output: dict[str, Any], case: dict[str, Any]) -> dict[str, Any]:
@@ -635,12 +605,16 @@ def cmd_run(
         print(f"Supported manifest: {AUTOMATION_MANIFEST_PATH}", file=sys.stderr)
         return 1
 
-    run_root = resolve_results_dir(results_dir) / run_date
-    run_root.mkdir(parents=True, exist_ok=True)
-    workspace = run_root / "workspaces" / case_id
-    raw_output_path = run_root / f"{case_id}.raw.json"
-    result_path = run_root / f"{case_id}.json"
-    prompt_path = run_root / f"{case_id}.prompt.txt"
+    run_date = validate_run_date(run_date)
+    results_root = resolve_results_dir(results_dir)
+    run_root = contained_child(results_root, run_date)
+    workspace = contained_child(run_root, "workspaces", case_id)
+    subject_output_path = contained_child(run_root, f"{case_id}.subject.txt")
+    trace_path = contained_child(run_root, f"{case_id}.trace.jsonl")
+    grader_prompt_path = contained_child(run_root, f"{case_id}.grader.prompt.txt")
+    grader_raw_path = contained_child(run_root, f"{case_id}.grader.raw.json")
+    result_path = contained_child(run_root, f"{case_id}.json")
+    prompt_path = contained_child(run_root, f"{case_id}.prompt.txt")
 
     automation_kind = "positive" if automation is not None else "negative"
     workspace_source: Path | None = None
@@ -649,8 +623,7 @@ def cmd_run(
         _, fixture_catalog = load_fixture_catalog()
         fixture = fixture_catalog[case["fixture_ref"]]
         source_workspace = ROOT / fixture["path"]
-        runtime_facts = gather_runtime_facts(source_workspace)
-        prompt_text = build_prompt(case, automation, workspace, runtime_facts=runtime_facts)
+        prompt_text = build_blind_prompt(case, automation)
         output_schema_path = OUTPUT_SCHEMA_PATH
         workspace_source = source_workspace
     else:
@@ -659,12 +632,11 @@ def cmd_run(
             _, fixture_catalog = load_fixture_catalog()
             fixture = fixture_catalog[case["fixture_ref"]]
             source_workspace = ROOT / fixture["path"]
-            prompt_text = build_false_trigger_prompt(case, workspace, automation=negative_automation)
+            prompt_text = build_blind_negative_prompt(case, negative_automation)
             workspace_source = source_workspace
         else:
-            prompt_text = build_false_trigger_prompt(case, workspace)
+            prompt_text = build_blind_negative_prompt(case, None)
         output_schema_path = FALSE_TRIGGER_OUTPUT_SCHEMA_PATH
-    prompt_path.write_text(prompt_text)
 
     if dry_run:
         print(f"dry_run=true")
@@ -675,10 +647,34 @@ def cmd_run(
             print(f"workspace_source={workspace_source}")
         print(f"workspace_destination={workspace}")
         print(f"prompt_path={prompt_path}")
-        print(f"raw_output_path={raw_output_path}")
+        print(f"subject_output_path={subject_output_path}")
+        print(f"trace_path={trace_path}")
+        print(f"grader_prompt_path={grader_prompt_path}")
+        print(f"grader_raw_path={grader_raw_path}")
         print(f"result_path={result_path}")
         print(f"output_schema={output_schema_path}")
+        print("subject_prompt_begin")
+        print(prompt_text, end="")
+        print("subject_prompt_end")
         return 0
+
+    artifact_paths = [
+        prompt_path,
+        subject_output_path,
+        trace_path,
+        grader_prompt_path,
+        grader_raw_path,
+        result_path,
+    ]
+    existing = [path for path in artifact_paths if path.exists()]
+    if (existing or workspace.exists()) and not force:
+        for path in existing:
+            print(f"Run artifact already exists: {path}", file=sys.stderr)
+        if workspace.exists():
+            print(f"Workspace already exists: {workspace}", file=sys.stderr)
+        return 1
+
+    run_root.mkdir(parents=True, exist_ok=True)
 
     if automation_kind == "positive":
         assert workspace_source is not None
@@ -687,33 +683,28 @@ def cmd_run(
         stage_workspace(workspace_source, workspace, force=force)
     else:
         prepare_empty_workspace(workspace, force=force)
-    if raw_output_path.exists() and not force:
-        print(f"Raw output already exists: {raw_output_path}", file=sys.stderr)
-        return 1
-    if result_path.exists() and not force:
-        print(f"Result already exists: {result_path}", file=sys.stderr)
-        return 1
+    before = snapshot_workspace(workspace)
+    write_text_atomic(prompt_path, prompt_text)
 
-    if automation_kind == "positive":
-        assert automation is not None
-        sandbox_mode = "read-only" if automation["mode"] == "patch-eval" else "workspace-write"
-    else:
-        sandbox_mode = "read-only"
+    permission_profile = (
+        "agentcore_workspace"
+        if automation is not None and automation["mode"] == "repo-bugfix"
+        else ":read-only"
+    )
     command = [
         codex_bin,
         "exec",
         "--skip-git-repo-check",
         "--ephemeral",
+        "--json",
         "--color",
         "never",
-        "--sandbox",
-        sandbox_mode,
         "-c",
         'approval_policy="never"',
-        "--output-schema",
-        str(output_schema_path),
+        "-c",
+        f'default_permissions="{permission_profile}"',
         "--output-last-message",
-        str(raw_output_path),
+        str(subject_output_path),
         "-",
     ]
     if model:
@@ -730,20 +721,87 @@ def cmd_run(
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr)
         return completed.returncode
+    write_text_atomic(trace_path, completed.stdout)
 
-    if not raw_output_path.exists():
-        print(f"Codex did not write raw output: {raw_output_path}", file=sys.stderr)
+    if not subject_output_path.exists():
+        print(f"Codex did not write a final message: {subject_output_path}", file=sys.stderr)
         return 1
 
-    with raw_output_path.open() as fh:
+    after = snapshot_workspace(workspace)
+    diff = workspace_diff(before, after)
+    validation = run_independent_validation(
+        workspace,
+        automation["mode"] if automation is not None else negative_automation["mode"],
+    )
+    grader_prompt = build_grader_prompt(
+        case,
+        subject_output_path.read_text(encoding="utf-8"),
+        completed.stdout,
+        diff,
+        validation,
+        negative=automation_kind == "negative",
+    )
+    write_text_atomic(grader_prompt_path, grader_prompt)
+
+    grader_command = [
+        codex_bin,
+        "exec",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--color",
+        "never",
+        "-c",
+        'approval_policy="never"',
+        "-c",
+        'default_permissions=":read-only"',
+        "--output-schema",
+        str(output_schema_path),
+        "--output-last-message",
+        str(grader_raw_path),
+        "-",
+    ]
+    if model:
+        grader_command[2:2] = ["--model", model]
+    graded = subprocess.run(
+        grader_command,
+        cwd=run_root,
+        env=build_codex_exec_env(),
+        input=grader_prompt,
+        text=True,
+        capture_output=True,
+    )
+    if graded.returncode != 0:
+        sys.stderr.write(graded.stderr)
+        return graded.returncode
+    if not grader_raw_path.exists():
+        print(f"Independent grader did not write output: {grader_raw_path}", file=sys.stderr)
+        return 1
+    with grader_raw_path.open(encoding="utf-8") as fh:
         raw_output = json.load(fh)
     if automation_kind == "positive":
         result = build_result(raw_output, case)
+        if automation is not None and automation["mode"] == "repo-bugfix":
+            deterministic_failures: list[str] = []
+            if "static_parse_status=failed" in validation:
+                deterministic_failures.append("deterministic:parse-failed")
+            if diff == "<no workspace changes>":
+                deterministic_failures.append("deterministic:no-workspace-change")
+            if deterministic_failures:
+                result["outcome"] = "fail"
+                result["observed_fail_signals"] = dedupe_preserve_order(
+                    [
+                        item
+                        for item in result.get("observed_fail_signals", [])
+                        if isinstance(item, str)
+                    ]
+                    + deterministic_failures
+                )
+                rubric = result.get("rubric")
+                if isinstance(rubric, dict):
+                    rubric["validation_ok"] = False
     else:
         result = build_false_trigger_result(raw_output, case)
-    with result_path.open("w") as fh:
-        json.dump(result, fh, indent=2)
-        fh.write("\n")
+    write_json_atomic(result_path, result)
 
     print(result_path)
     return 0
@@ -776,7 +834,7 @@ def main() -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Write the prompt file and print planned paths without invoking codex exec.",
+        help="Print the blind prompt and planned paths without writing artifacts or invoking Codex.",
     )
     parser.add_argument(
         "--results-dir",

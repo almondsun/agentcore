@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from eval_harness import ROOT, find_case, resolve_results_dir
@@ -96,10 +99,10 @@ def check_codex_backend(codex_bin: str) -> dict[str, object]:
         "--ephemeral",
         "--color",
         "never",
-        "--sandbox",
-        "read-only",
         "-c",
         'approval_policy="never"',
+        "-c",
+        'default_permissions=":read-only"',
         "-",
     ]
     try:
@@ -138,14 +141,30 @@ def check_codex_backend(codex_bin: str) -> dict[str, object]:
 
 def check_results_dir(results_dir: Path) -> dict[str, object]:
     probe_dir = results_dir / ".preflight"
-    probe_file = probe_dir / "write-test.txt"
+    probe_file: Path | None = None
     try:
+        if has_symlink_component(results_dir) or probe_dir.is_symlink():
+            raise ValueError("results directory path contains a symlink")
         probe_dir.mkdir(parents=True, exist_ok=True)
-        probe_file.write_text("ok\n")
-        content = probe_file.read_text()
+        if probe_dir.is_symlink():
+            raise ValueError("preflight probe directory is a symlink")
+        with tempfile.NamedTemporaryFile(
+            mode="w+",
+            encoding="utf-8",
+            dir=probe_dir,
+            prefix="write-test-",
+            suffix=".txt",
+            delete=False,
+        ) as handle:
+            probe_file = Path(handle.name)
+            handle.write("ok\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+            handle.seek(0)
+            content = handle.read()
         ok = content == "ok\n"
-        if probe_file.exists():
-            probe_file.unlink()
+        probe_file.unlink()
+        probe_file = None
         try:
             probe_dir.rmdir()
         except OSError:
@@ -155,10 +174,16 @@ def check_results_dir(results_dir: Path) -> dict[str, object]:
             "ok": ok,
             "details": {
                 "results_dir": str(results_dir),
-                "probe_file": str(probe_file),
+                "probe_file": "exclusive random file",
             },
         }
     except Exception as exc:
+        if probe_file is not None:
+            try:
+                if stat.S_ISREG(probe_file.lstat().st_mode):
+                    probe_file.unlink(missing_ok=True)
+            except OSError:
+                pass
         return {
             "name": "results_dir",
             "ok": False,
@@ -167,6 +192,16 @@ def check_results_dir(results_dir: Path) -> dict[str, object]:
                 "error": str(exc),
             },
         }
+
+
+def has_symlink_component(path: Path) -> bool:
+    absolute = path.absolute()
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current /= part
+        if current.is_symlink():
+            return True
+    return False
 
 
 def check_pytest_toolchain() -> dict[str, object]:
