@@ -8,6 +8,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path, PureWindowsPath
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -82,6 +83,10 @@ extends = ":workspace"
 class BootstrapFilesystemSafetyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.bootstrap = load_bootstrap_module()
+
+    def require_safe_retirement(self) -> None:
+        if not self.bootstrap.safe_retirement_supported():
+            self.skipTest("descriptor-relative no-follow retirement is unavailable")
 
     def test_replace_file_replaces_symlink_without_touching_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -209,6 +214,333 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
 
             self.assertEqual(unowned.read_text(encoding="utf-8"), "external\n")
 
+    def test_retire_tree_removes_only_owned_files_and_leaves_empty_parents(self) -> None:
+        self.require_safe_retirement()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            managed = root / "evals"
+            (managed / "owned").mkdir(parents=True)
+            owned = managed / "owned" / "result.json"
+            owned.write_text("{}\n", encoding="utf-8")
+            unowned = managed / "local.json"
+            unowned.write_text("local\n", encoding="utf-8")
+            old_backup_root = self.bootstrap.BACKUP_ROOT
+            self.bootstrap.BACKUP_ROOT = root / "backups"
+            try:
+                plan = self.bootstrap.Plan(dry_run=False)
+                unresolved = self.bootstrap.retire_managed_tree(
+                    managed, plan, ["owned/result.json"]
+                )
+            finally:
+                self.bootstrap.BACKUP_ROOT = old_backup_root
+
+            self.assertEqual(unresolved, [])
+            self.assertFalse(owned.exists())
+            self.assertTrue((managed / "owned").is_dir())
+            self.assertEqual(unowned.read_text(encoding="utf-8"), "local\n")
+            self.assertTrue(any("result.json" in str(path) for path in plan.backup_dir.rglob("*")))
+
+    def test_retire_tree_keeps_unsafe_and_directory_entries_unresolved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "templates"
+            (root / "became-dir").mkdir(parents=True)
+            plan = self.bootstrap.Plan(dry_run=False)
+
+            unresolved = self.bootstrap.retire_managed_tree(
+                root,
+                plan,
+                ["../outside", r"C:\outside", "became-dir"],
+            )
+
+            self.assertEqual(unresolved, ["../outside", r"C:\outside", "became-dir"])
+            self.assertTrue((root / "became-dir").is_dir())
+
+    def test_retire_tree_does_not_follow_symlinked_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "evals"
+            external = base / "external"
+            root.mkdir()
+            external.mkdir()
+            protected = external / "result.json"
+            protected.write_text("preserve\n", encoding="utf-8")
+            try:
+                (root / "linked").symlink_to(external, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"symlink creation is unavailable: {exc}")
+
+            unresolved = self.bootstrap.retire_managed_tree(
+                root,
+                self.bootstrap.Plan(dry_run=False),
+                ["linked/result.json"],
+            )
+
+            self.assertEqual(unresolved, ["linked/result.json"])
+            self.assertEqual(protected.read_text(encoding="utf-8"), "preserve\n")
+
+    def test_retire_tree_rejects_symlinked_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            external = base / "external"
+            external.mkdir()
+            protected = external / "result.json"
+            protected.write_text("preserve\n", encoding="utf-8")
+            root = base / "evals"
+            try:
+                root.symlink_to(external, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"symlink creation is unavailable: {exc}")
+
+            unresolved = self.bootstrap.retire_managed_tree(
+                root,
+                self.bootstrap.Plan(dry_run=False),
+                ["result.json"],
+            )
+
+            self.assertEqual(unresolved, ["result.json"])
+            self.assertEqual(protected.read_text(encoding="utf-8"), "preserve\n")
+
+    def test_retire_tree_unlinks_leaf_symlink_without_touching_target(self) -> None:
+        self.require_safe_retirement()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "templates"
+            root.mkdir()
+            target = base / "target.md"
+            target.write_text("preserve\n", encoding="utf-8")
+            leaf = root / "owned.md"
+            try:
+                leaf.symlink_to(target)
+            except OSError as exc:
+                self.skipTest(f"symlink creation is unavailable: {exc}")
+            old_backup_root = self.bootstrap.BACKUP_ROOT
+            self.bootstrap.BACKUP_ROOT = base / "backups"
+            try:
+                unresolved = self.bootstrap.retire_managed_tree(
+                    root,
+                    self.bootstrap.Plan(dry_run=False),
+                    ["owned.md"],
+                )
+            finally:
+                self.bootstrap.BACKUP_ROOT = old_backup_root
+
+            self.assertEqual(unresolved, [])
+            self.assertFalse(leaf.exists())
+            self.assertFalse(leaf.is_symlink())
+            self.assertEqual(target.read_text(encoding="utf-8"), "preserve\n")
+
+    def test_retire_tree_dry_run_changes_nothing(self) -> None:
+        self.require_safe_retirement()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "evals"
+            root.mkdir()
+            owned = root / "owned.json"
+            owned.write_text("{}\n", encoding="utf-8")
+            plan = self.bootstrap.Plan(dry_run=True)
+
+            self.bootstrap.retire_managed_tree(root, plan, ["owned.json"])
+
+            self.assertTrue(owned.exists())
+            self.assertTrue(any("remove stale managed path" in item for item in plan.actions))
+
+    def test_retire_tree_backup_failure_leaves_owned_file(self) -> None:
+        self.require_safe_retirement()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "evals"
+            root.mkdir()
+            owned = root / "owned.json"
+            owned.write_text("{}\n", encoding="utf-8")
+            plan = self.bootstrap.Plan(dry_run=False)
+
+            with mock.patch.object(
+                self.bootstrap,
+                "backup_retired_leaf",
+                side_effect=OSError("backup failed"),
+            ):
+                unresolved = self.bootstrap.retire_managed_tree(
+                    root, plan, ["owned.json"]
+                )
+
+            self.assertEqual(unresolved, ["owned.json"])
+            self.assertTrue(owned.exists())
+
+    def test_retire_tree_never_recursively_deletes_swapped_leaf(self) -> None:
+        self.require_safe_retirement()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "evals"
+            root.mkdir()
+            owned = root / "owned.json"
+            owned.write_text("{}\n", encoding="utf-8")
+
+            def swap_to_directory(*_args) -> None:
+                owned.unlink()
+                owned.mkdir()
+                (owned / "unowned.txt").write_text("preserve\n", encoding="utf-8")
+
+            with mock.patch.object(
+                self.bootstrap,
+                "backup_retired_leaf",
+                side_effect=swap_to_directory,
+            ):
+                unresolved = self.bootstrap.retire_managed_tree(
+                    root,
+                    self.bootstrap.Plan(dry_run=False),
+                    ["owned.json"],
+                )
+
+            self.assertEqual(unresolved, ["owned.json"])
+            quarantined = next(root.glob(".agentcore-retired-*"))
+            self.assertEqual((quarantined / "unowned.txt").read_text(), "preserve\n")
+
+    def test_manifest_loader_rejects_malformed_and_symlinked_manifests(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            manifest = base / "agentcore-manifest.json"
+            old_manifest = self.bootstrap.MANIFEST_PATH
+            self.bootstrap.MANIFEST_PATH = manifest
+            try:
+                manifest.write_text("not json", encoding="utf-8")
+                self.assertEqual(self.bootstrap.load_install_manifest_state(), ({}, False))
+                target = base / "target.json"
+                target.write_text('{"schema_version": 1, "managed_trees": {}}', encoding="utf-8")
+                manifest.unlink()
+                try:
+                    manifest.symlink_to(target)
+                except OSError as exc:
+                    self.skipTest(f"symlink creation is unavailable: {exc}")
+                self.assertEqual(self.bootstrap.load_install_manifest_state(), ({}, False))
+            finally:
+                self.bootstrap.MANIFEST_PATH = old_manifest
+
+    def test_manifest_loader_requires_schema_but_retains_unsafe_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "agentcore-manifest.json"
+            old_manifest = self.bootstrap.MANIFEST_PATH
+            self.bootstrap.MANIFEST_PATH = manifest
+            try:
+                manifest.write_text(
+                    '{"schema_version": 2, "managed_trees": {}}\n',
+                    encoding="utf-8",
+                )
+                self.assertEqual(
+                    self.bootstrap.load_install_manifest_state(),
+                    ({}, False),
+                )
+
+                manifest.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "managed_trees": {
+                                ".codex/evals": [r"C:\\outside", "owned.json"]
+                            },
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                self.assertEqual(
+                    self.bootstrap.load_install_manifest_state(),
+                    (
+                        {".codex/evals": [r"C:\\outside", "owned.json"]},
+                        True,
+                    ),
+                )
+            finally:
+                self.bootstrap.MANIFEST_PATH = old_manifest
+
+    def test_manifest_loader_rejects_insecure_or_oversized_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "agentcore-manifest.json"
+            old_manifest = self.bootstrap.MANIFEST_PATH
+            self.bootstrap.MANIFEST_PATH = manifest
+            try:
+                manifest.write_text(
+                    '{"schema_version": 1, "managed_trees": {}}\n',
+                    encoding="utf-8",
+                )
+                manifest.chmod(0o666)
+                self.assertEqual(
+                    self.bootstrap.load_install_manifest_state(),
+                    ({}, self.bootstrap.os.name != "posix"),
+                )
+                manifest.chmod(0o600)
+                with mock.patch.object(self.bootstrap, "MAX_MANIFEST_BYTES", 1):
+                    self.assertEqual(
+                        self.bootstrap.load_install_manifest_state(),
+                        ({}, False),
+                    )
+            finally:
+                self.bootstrap.MANIFEST_PATH = old_manifest
+
+    def test_manifest_loader_does_not_apply_posix_modes_on_windows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "agentcore-manifest.json"
+            manifest.write_text(
+                '{"schema_version": 1, "managed_trees": {}}\n',
+                encoding="utf-8",
+            )
+            manifest.chmod(0o666)
+            old_manifest = self.bootstrap.MANIFEST_PATH
+            self.bootstrap.MANIFEST_PATH = manifest
+            try:
+                with mock.patch.object(self.bootstrap.os, "name", "nt"):
+                    self.assertEqual(
+                        self.bootstrap.load_install_manifest_state(),
+                        ({}, True),
+                    )
+            finally:
+                self.bootstrap.MANIFEST_PATH = old_manifest
+
+    def test_manifest_write_replaces_symlink_without_touching_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            target = base / "target.json"
+            target.write_text("preserve\n", encoding="utf-8")
+            manifest = base / "agentcore-manifest.json"
+            try:
+                manifest.symlink_to(target)
+            except OSError as exc:
+                self.skipTest(f"symlink creation is unavailable: {exc}")
+            old_manifest = self.bootstrap.MANIFEST_PATH
+            old_backup_root = self.bootstrap.BACKUP_ROOT
+            self.bootstrap.MANIFEST_PATH = manifest
+            self.bootstrap.BACKUP_ROOT = base / "backups"
+            try:
+                self.bootstrap.write_install_manifest(
+                    self.bootstrap.Plan(dry_run=False), {".codex/hooks": ["guard.py"]}
+                )
+            finally:
+                self.bootstrap.MANIFEST_PATH = old_manifest
+                self.bootstrap.BACKUP_ROOT = old_backup_root
+
+            self.assertFalse(manifest.is_symlink())
+            self.assertEqual(target.read_text(encoding="utf-8"), "preserve\n")
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(payload["managed_trees"], {".codex/hooks": ["guard.py"]})
+
+    def test_manifest_replace_failure_preserves_old_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            manifest = base / "agentcore-manifest.json"
+            original = '{"schema_version": 1, "managed_trees": {}}\n'
+            manifest.write_text(original, encoding="utf-8")
+            old_manifest = self.bootstrap.MANIFEST_PATH
+            old_backup_root = self.bootstrap.BACKUP_ROOT
+            self.bootstrap.MANIFEST_PATH = manifest
+            self.bootstrap.BACKUP_ROOT = base / "backups"
+            try:
+                with mock.patch.object(self.bootstrap.os, "replace", side_effect=OSError("replace failed")):
+                    with self.assertRaisesRegex(OSError, "replace failed"):
+                        self.bootstrap.write_install_manifest(
+                            self.bootstrap.Plan(dry_run=False), {".codex/hooks": ["guard.py"]}
+                        )
+            finally:
+                self.bootstrap.MANIFEST_PATH = old_manifest
+                self.bootstrap.BACKUP_ROOT = old_backup_root
+
+            self.assertEqual(manifest.read_text(encoding="utf-8"), original)
+            self.assertEqual(list(base.glob("tmp*")), [])
+
     def test_manifest_paths_cannot_escape_managed_root(self) -> None:
         self.assertFalse(self.bootstrap.safe_manifest_relative_path(Path("../outside")))
         self.assertFalse(self.bootstrap.safe_manifest_relative_path(Path("/outside")))
@@ -222,6 +554,74 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
         self.assertFalse(
             self.bootstrap.safe_manifest_relative_path(PureWindowsPath(r"C:\outside"))
         )
+
+    def test_install_retires_owned_files_and_persists_unresolved_entries(self) -> None:
+        self.require_safe_retirement()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            source_codex = base / "source-codex"
+            source_agents = base / "source-agents"
+            live_codex = base / "live-codex"
+            live_agents = base / "live-agents"
+            for dirname in self.bootstrap.ACTIVE_CODEX_TREES:
+                (source_codex / dirname).mkdir(parents=True)
+            (source_codex / "agents" / "active.toml").write_text(
+                "name = 'active'\n", encoding="utf-8"
+            )
+            (source_agents / "skills").mkdir(parents=True)
+            retired = live_codex / "evals"
+            retired.mkdir(parents=True)
+            (retired / "owned.json").write_text("{}\n", encoding="utf-8")
+            (retired / "unowned.json").write_text("local\n", encoding="utf-8")
+            (retired / "became-directory").mkdir()
+            manifest = live_codex / "agentcore-manifest.json"
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "managed_trees": {
+                            ".codex/evals": ["owned.json", "became-directory"]
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manifest.chmod(0o600)
+
+            names = (
+                "SRC_CODEX",
+                "SRC_AGENTS",
+                "LIVE_CODEX",
+                "LIVE_AGENTS",
+                "BACKUP_ROOT",
+                "MANIFEST_PATH",
+            )
+            old = {name: getattr(self.bootstrap, name) for name in names}
+            self.bootstrap.SRC_CODEX = source_codex
+            self.bootstrap.SRC_AGENTS = source_agents
+            self.bootstrap.LIVE_CODEX = live_codex
+            self.bootstrap.LIVE_AGENTS = live_agents
+            self.bootstrap.BACKUP_ROOT = base / "backups"
+            self.bootstrap.MANIFEST_PATH = manifest
+            try:
+                with mock.patch.object(
+                    self.bootstrap, "build_rendered_hooks_config", return_value="{}\n"
+                ), mock.patch.object(
+                    self.bootstrap, "build_merged_config", return_value="model = 'test'\n"
+                ):
+                    self.bootstrap.install(self.bootstrap.Plan(dry_run=False))
+            finally:
+                for name, value in old.items():
+                    setattr(self.bootstrap, name, value)
+
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            trees = payload["managed_trees"]
+            self.assertFalse((retired / "owned.json").exists())
+            self.assertEqual(
+                (retired / "unowned.json").read_text(encoding="utf-8"), "local\n"
+            )
+            self.assertEqual(trees[".codex/evals"], ["became-directory"])
+            self.assertEqual(trees[".codex/agents"], ["active.toml"])
 
     def test_stale_manifest_entry_does_not_follow_symlinked_parent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

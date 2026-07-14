@@ -2,9 +2,8 @@
 
 ## Purpose
 
-This repository is the curated, versioned source for durable agent configuration,
-custom skills, evaluation assets, and live-task material. It is not a raw
-home-directory backup.
+This repository is the curated, versioned source for durable Codex configuration
+and custom skills. It is not a raw home-directory backup.
 
 Optimize for:
 
@@ -22,16 +21,14 @@ Optimize for:
 - `openai/dot-codex/`: sanitized mirror of durable `~/.codex` configuration.
 - `openai/dot-agents/`: custom user-managed Codex skills mirrored from
   `~/.agents`.
-- `openai/lab/`: evaluation, fixtures, live tasks, and verification material.
-- `anthropic/`: reserved for future Anthropic-specific material.
 
 Do not commit local auth/session state, histories, sqlite databases, caches,
 logs, shell snapshots, local virtual environments, or raw temporary directories.
 
 ## Operating Rules
 
-- Prefer the nearest source of truth: local `README.md`, nested `AGENTS.md`,
-  eval docs, and task-specific files before generic assumptions.
+- Prefer the nearest source of truth: local `README.md`, nested `AGENTS.md`, and
+  task-specific files before generic assumptions.
 - When working with OpenAI APIs, ChatGPT Apps SDK, Codex, or OpenAI platform
   documentation, use the `openaiDeveloperDocs` MCP first.
 - Do not overwrite or revert unrelated user changes.
@@ -51,6 +48,10 @@ check cannot be run, report why and what remains unverified.
 
 For config-only changes, at minimum parse changed TOML/JSON and run the closest
 Codex CLI inspection command when available.
+
+Agent behavior is validated in the real target repository with that
+repository's own tests and review process. Keep scratch tasks and generated
+behavioral evidence outside `agentcore`.
 
 ## Security
 

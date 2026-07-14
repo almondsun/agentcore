@@ -13,6 +13,7 @@ import filecmp
 import fnmatch
 import json
 import os
+import secrets
 import shlex
 import shutil
 import stat
@@ -20,7 +21,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 try:
@@ -85,6 +86,9 @@ CONFIG_LOCAL_TOP_LEVEL_KEYS = {
 AGENTCORE_PERMISSION_PROFILE = "agentcore_workspace"
 AGENTCORE_PERMISSION_TABLE = f"permissions.{AGENTCORE_PERMISSION_PROFILE}"
 PROFILE_CONFIG_GLOB = "*.config.toml"
+ACTIVE_CODEX_TREES = ("agents", "rules", "hooks")
+RETIRED_CODEX_TREES = ("templates", "evals")
+MAX_MANIFEST_BYTES = 1024 * 1024
 
 
 class Plan:
@@ -231,9 +235,9 @@ def install(plan: Plan) -> None:
     plan.ensure_dir(BACKUP_ROOT, 0o700)
     plan.ensure_dir(LIVE_CODEX / "tmp", 0o700)
 
-    previous_manifest = load_install_manifest()
+    previous_manifest, manifest_trusted = load_install_manifest_state()
     installed_trees: dict[str, list[str]] = {}
-    for dirname in ("agents", "rules", "templates", "evals", "hooks"):
+    for dirname in ACTIVE_CODEX_TREES:
         key = f".codex/{dirname}"
         installed_trees[key] = sync_tree_contents(
             SRC_CODEX / dirname,
@@ -241,6 +245,16 @@ def install(plan: Plan) -> None:
             plan,
             set(previous_manifest.get(key, [])),
         )
+    if manifest_trusted:
+        for dirname in RETIRED_CODEX_TREES:
+            key = f".codex/{dirname}"
+            unresolved = retire_managed_tree(
+                LIVE_CODEX / dirname,
+                plan,
+                previous_manifest.get(key, []),
+            )
+            if unresolved:
+                installed_trees[key] = unresolved
 
     for name in ("AGENTS.md", "README.md"):
         src = SRC_CODEX / name
@@ -280,12 +294,7 @@ def install(plan: Plan) -> None:
 
     merged_config = build_merged_config()
     plan.write_text_atomic(LIVE_CODEX / "config.toml", merged_config, 0o600)
-    manifest_text = json.dumps(
-        {"schema_version": 1, "managed_trees": installed_trees},
-        indent=2,
-        sort_keys=True,
-    ) + "\n"
-    plan.write_text_atomic(MANIFEST_PATH, manifest_text, 0o600)
+    write_install_manifest(plan, installed_trees)
 
 
 def sync_tree_contents(
@@ -329,6 +338,149 @@ def sync_tree_contents(
     return sorted(source_files)
 
 
+def retire_managed_tree(
+    root: Path,
+    plan: Plan,
+    previously_managed: list[str],
+) -> list[str]:
+    """Retire manifest-owned files without governing unowned sibling content."""
+
+    unresolved: list[str] = []
+    if root.is_symlink() or (root.exists() and not root.is_dir()):
+        plan.note(f"skip retired managed tree with unsafe root {root}")
+        return list(previously_managed)
+    if not safe_retirement_supported():
+        plan.note(f"skip retired managed tree without safe unlink support {root}")
+        return list(previously_managed)
+
+    for rel_text in previously_managed:
+        rel = Path(rel_text)
+        if not safe_manifest_relative_path(rel):
+            plan.note(f"skip invalid retired managed path {rel_text}")
+            unresolved.append(rel_text)
+            continue
+        candidate = contained_manifest_leaf_path(root, rel)
+        if candidate is None or path_has_symlink_ancestor(root, rel):
+            plan.note(f"skip retired managed path through unsafe parent {root / rel}")
+            unresolved.append(rel_text)
+            continue
+        if not candidate.exists() and not candidate.is_symlink():
+            continue
+        if candidate.is_dir() and not candidate.is_symlink():
+            plan.note(f"skip retired managed file that became a directory {candidate}")
+            unresolved.append(rel_text)
+            continue
+
+        if not retire_managed_leaf(root, rel, candidate, plan):
+            unresolved.append(rel_text)
+
+    return unresolved
+
+
+def safe_retirement_supported() -> bool:
+    return bool(
+        getattr(os, "O_DIRECTORY", 0)
+        and getattr(os, "O_NOFOLLOW", 0)
+        and os.open in os.supports_dir_fd
+        and os.readlink in os.supports_dir_fd
+        and os.rename in os.supports_dir_fd
+        and os.stat in os.supports_dir_fd
+        and os.unlink in os.supports_dir_fd
+    )
+
+
+def retire_managed_leaf(root: Path, rel: Path, candidate: Path, plan: Plan) -> bool:
+    """Back up and unlink one pinned, non-directory leaf without following links."""
+
+    target = plan.backup_dir / relative_backup_path(candidate)
+    plan.note(f"backup {candidate} -> {target}")
+    plan.note(f"remove stale managed path {candidate}")
+    if plan.dry_run:
+        return True
+
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    parent_fd: int | None = None
+    try:
+        parent_fd = os.open(root, flags)
+        for part in rel.parts[:-1]:
+            child_fd = os.open(part, flags, dir_fd=parent_fd)
+            previous_fd = parent_fd
+            parent_fd = child_fd
+            os.close(previous_fd)
+
+        leaf = rel.parts[-1]
+        initial = os.stat(leaf, dir_fd=parent_fd, follow_symlinks=False)
+        if stat.S_ISDIR(initial.st_mode) or not (
+            stat.S_ISREG(initial.st_mode) or stat.S_ISLNK(initial.st_mode)
+        ):
+            return False
+        backup_retired_leaf(plan, candidate, parent_fd, leaf, initial)
+        quarantine = f".agentcore-retired-{secrets.token_hex(16)}"
+        os.rename(
+            leaf,
+            quarantine,
+            src_dir_fd=parent_fd,
+            dst_dir_fd=parent_fd,
+        )
+        captured = os.stat(quarantine, dir_fd=parent_fd, follow_symlinks=False)
+        if file_inode_identity(captured) != file_inode_identity(initial):
+            plan.note(
+                f"preserve changed retired managed path as {candidate.parent / quarantine}"
+            )
+            return False
+        os.unlink(quarantine, dir_fd=parent_fd)
+        return True
+    except OSError as exc:
+        plan.note(f"skip unsafe retired managed path {candidate}: {exc}")
+        return False
+    finally:
+        if parent_fd is not None:
+            os.close(parent_fd)
+
+
+def backup_retired_leaf(
+    plan: Plan,
+    candidate: Path,
+    parent_fd: int,
+    leaf: str,
+    metadata: os.stat_result,
+) -> None:
+    target = plan.backup_dir / relative_backup_path(candidate)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if stat.S_ISLNK(metadata.st_mode):
+        target.symlink_to(os.readlink(leaf, dir_fd=parent_fd))
+    else:
+        descriptor = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        try:
+            opened_metadata = os.fstat(descriptor)
+            if file_identity(opened_metadata) != file_identity(metadata):
+                raise OSError("retired managed file changed before backup")
+            with os.fdopen(os.dup(descriptor), "rb") as source, target.open("xb") as output:
+                shutil.copyfileobj(source, output)
+            if file_identity(os.fstat(descriptor)) != file_identity(metadata):
+                raise OSError("retired managed file changed during backup")
+            chmod_best_effort(target, stat.S_IMODE(metadata.st_mode))
+            os.utime(target, ns=(metadata.st_atime_ns, metadata.st_mtime_ns))
+        finally:
+            os.close(descriptor)
+    plan.backed_up.append(candidate)
+
+
+def file_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        stat.S_IFMT(metadata.st_mode),
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def file_inode_identity(metadata: os.stat_result) -> tuple[int, int, int]:
+    return (metadata.st_dev, metadata.st_ino, stat.S_IFMT(metadata.st_mode))
+
+
 def build_rendered_hooks_config(python_executable: str | None = None) -> str:
     template = json.loads((SRC_CODEX / "hooks.json").read_text(encoding="utf-8"))
     executable = python_executable or str(Path(sys.executable).resolve())
@@ -354,6 +506,7 @@ def build_rendered_hooks_config(python_executable: str | None = None) -> str:
 
 
 def safe_manifest_relative_path(path: Path) -> bool:
+    windows_path = PureWindowsPath(str(path))
     return (
         bool(path.parts)
         and not path.is_absolute()
@@ -361,6 +514,10 @@ def safe_manifest_relative_path(path: Path) -> bool:
         and not path.drive
         and not path.root
         and ".." not in path.parts
+        and not windows_path.is_absolute()
+        and not windows_path.drive
+        and not windows_path.root
+        and ".." not in windows_path.parts
     )
 
 
@@ -381,6 +538,17 @@ def contained_manifest_path(root: Path, relative: Path) -> Path | None:
     return candidate if candidate.is_relative_to(resolved_root) else None
 
 
+def contained_manifest_leaf_path(root: Path, relative: Path) -> Path | None:
+    """Return a contained leaf path without resolving the leaf symlink itself."""
+
+    if not safe_manifest_relative_path(relative):
+        return None
+    resolved_root = root.resolve(strict=False)
+    candidate = root / relative
+    resolved_parent = candidate.parent.resolve(strict=False)
+    return candidate if resolved_parent.is_relative_to(resolved_root) else None
+
+
 def path_has_symlink_ancestor(root: Path, relative: Path) -> bool:
     current = root
     if current.is_symlink():
@@ -392,18 +560,47 @@ def path_has_symlink_ancestor(root: Path, relative: Path) -> bool:
     return False
 
 
-def load_install_manifest() -> dict[str, list[str]]:
-    if not MANIFEST_PATH.exists() or MANIFEST_PATH.is_symlink():
-        return {}
+def load_install_manifest_state() -> tuple[dict[str, list[str]], bool]:
     try:
-        payload = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+        path_metadata = MANIFEST_PATH.lstat()
+    except OSError:
+        return {}, False
+    if (
+        not stat.S_ISREG(path_metadata.st_mode)
+        or path_metadata.st_nlink != 1
+        or path_metadata.st_size > MAX_MANIFEST_BYTES
+        or (
+            os.name == "posix"
+            and (
+                path_metadata.st_uid != os.getuid()
+                or bool(path_metadata.st_mode & 0o022)
+            )
+        )
+    ):
+        return {}, False
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(MANIFEST_PATH, flags)
+        opened_metadata = os.fstat(descriptor)
+        expected = (path_metadata.st_dev, path_metadata.st_ino, path_metadata.st_size)
+        actual = (opened_metadata.st_dev, opened_metadata.st_ino, opened_metadata.st_size)
+        if expected != actual or not stat.S_ISREG(opened_metadata.st_mode):
+            return {}, False
+        handle = os.fdopen(descriptor, "r", encoding="utf-8")
+        descriptor = None
+        with handle:
+            payload = json.load(handle)
+    except (OSError, ValueError, UnicodeError):
+        return {}, False
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
     if not isinstance(payload, dict) or payload.get("schema_version") != 1:
-        return {}
+        return {}, False
     trees = payload.get("managed_trees")
     if not isinstance(trees, dict):
-        return {}
+        return {}, False
     result: dict[str, list[str]] = {}
     for key, values in trees.items():
         if not isinstance(key, str) or not isinstance(values, list):
@@ -411,9 +608,62 @@ def load_install_manifest() -> dict[str, list[str]]:
         result[key] = [
             value
             for value in values
-            if isinstance(value, str) and safe_manifest_relative_path(Path(value))
+            if isinstance(value, str)
         ]
-    return result
+    return result, True
+
+
+def load_install_manifest() -> dict[str, list[str]]:
+    return load_install_manifest_state()[0]
+
+
+def write_install_manifest(plan: Plan, installed_trees: dict[str, list[str]]) -> None:
+    content = json.dumps(
+        {"schema_version": 1, "managed_trees": installed_trees},
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+    if (
+        not MANIFEST_PATH.is_symlink()
+        and MANIFEST_PATH.exists()
+        and MANIFEST_PATH.read_text(encoding="utf-8") == content
+    ):
+        plan.note(f"unchanged file {MANIFEST_PATH}")
+        return
+
+    plan.backup(MANIFEST_PATH)
+    plan.note(f"write file {MANIFEST_PATH}")
+    if plan.dry_run:
+        return
+
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=str(MANIFEST_PATH.parent),
+            delete=False,
+        ) as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+            tmp_name = handle.name
+        chmod_best_effort(Path(tmp_name), 0o600)
+        os.replace(tmp_name, MANIFEST_PATH)
+        tmp_name = None
+        try:
+            directory_fd = os.open(MANIFEST_PATH.parent, os.O_RDONLY)
+        except OSError:
+            directory_fd = None
+        if directory_fd is not None:
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    finally:
+        if tmp_name is not None:
+            Path(tmp_name).unlink(missing_ok=True)
 
 
 def build_merged_config() -> str:
@@ -664,7 +914,13 @@ def validate() -> list[str]:
         except Exception as exc:  # noqa: BLE001
             failures.append(f"{SRC_CODEX / 'config.toml'}: permission validation failed: {exc}")
 
-    for json_path in list(SRC_CODEX.rglob("*.json")) + list(LIVE_CODEX.rglob("*.json")):
+    live_json_paths = [LIVE_CODEX / "hooks.json", MANIFEST_PATH]
+    for dirname in ACTIVE_CODEX_TREES:
+        live_json_paths.extend((LIVE_CODEX / dirname).rglob("*.json"))
+    json_paths = list(SRC_CODEX.rglob("*.json")) + [
+        path for path in live_json_paths if path.exists() and not path.is_symlink()
+    ]
+    for json_path in json_paths:
         if should_skip(json_path.relative_to(json_path.anchor) if json_path.is_absolute() else json_path):
             continue
         try:
@@ -682,8 +938,6 @@ def validate() -> list[str]:
     for managed_root in (
         LIVE_CODEX / "agents",
         LIVE_CODEX / "rules",
-        LIVE_CODEX / "templates",
-        LIVE_CODEX / "evals",
         LIVE_CODEX / "hooks",
         LIVE_AGENTS / "skills",
     ):
