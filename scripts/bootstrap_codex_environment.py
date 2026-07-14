@@ -399,13 +399,14 @@ def retire_managed_leaf(root: Path, rel: Path, candidate: Path, plan: Plan) -> b
         return True
 
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    opened: list[int] = []
+    parent_fd: int | None = None
     try:
         parent_fd = os.open(root, flags)
-        opened.append(parent_fd)
         for part in rel.parts[:-1]:
-            parent_fd = os.open(part, flags, dir_fd=parent_fd)
-            opened.append(parent_fd)
+            child_fd = os.open(part, flags, dir_fd=parent_fd)
+            previous_fd = parent_fd
+            parent_fd = child_fd
+            os.close(previous_fd)
 
         leaf = rel.parts[-1]
         initial = os.stat(leaf, dir_fd=parent_fd, follow_symlinks=False)
@@ -433,8 +434,8 @@ def retire_managed_leaf(root: Path, rel: Path, candidate: Path, plan: Plan) -> b
         plan.note(f"skip unsafe retired managed path {candidate}: {exc}")
         return False
     finally:
-        for descriptor in reversed(opened):
-            os.close(descriptor)
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def backup_retired_leaf(
