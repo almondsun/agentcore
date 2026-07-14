@@ -6,9 +6,10 @@
 scripts/validate-codex.sh
 ```
 
-This runs `codex doctor`, bootstrap validation, TOML parsing, Codex version and
-feature compatibility checks, live-vs-mirror drift checks, branch sync checks,
-hook regression tests, and a strict non-interactive Codex config load.
+This runs `codex doctor`, bootstrap validation, TOML parsing, Codex compatibility
+and feature checks, semantic eval-catalog validation, live-vs-mirror drift checks,
+branch sync checks, bootstrap and hook regression tests, and a strict
+non-interactive Codex config load.
 
 `codex doctor` checks live network, provider, MCP, and WebSocket reachability.
 The script reports doctor failures but continues with deterministic local checks
@@ -41,7 +42,7 @@ The checker ensures durable Codex setup paths are synchronized between the
 
 ```bash
 scripts/cleanup-worktrees.sh --list
-scripts/cleanup-worktrees.sh --remove /home/mitin/code/agentcore-windows-patch
+scripts/cleanup-worktrees.sh --remove /home/user/code/agentcore-windows-patch
 ```
 
 Removal refuses dirty worktrees and refuses to remove the primary checkout.

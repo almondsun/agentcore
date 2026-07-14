@@ -16,6 +16,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from bootstrap_codex_environment import build_rendered_hooks_config
+
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover
@@ -28,8 +30,6 @@ DEFAULT_LIVE_CODEX = Path.home() / '.codex'
 MANAGED_RELATIVE_FILES = [
     Path('AGENTS.md'),
     Path('README.md'),
-    Path('hooks.json'),
-    Path('version.json'),
 ]
 MANAGED_RELATIVE_DIRS = [
     Path('agents'),
@@ -127,9 +127,13 @@ def normalize_config(data: dict[str, Any]) -> dict[str, Any]:
 def compare_managed_files(live_codex: Path, drift: Drift) -> None:
     for rel in MANAGED_RELATIVE_FILES:
         compare_file(MIRROR_CODEX / rel, live_codex / rel, rel, drift)
+    live_hooks = live_codex / 'hooks.json'
+    if not live_hooks.exists():
+        drift.add('missing live managed file: hooks.json')
+    elif live_hooks.read_text(encoding='utf-8') != build_rendered_hooks_config():
+        drift.add('managed file differs: hooks.json')
     for rel_dir in MANAGED_RELATIVE_DIRS:
         mirror_dir = MIRROR_CODEX / rel_dir
-        live_dir = live_codex / rel_dir
         if not mirror_dir.exists():
             continue
         for mirror_path in sorted(path for path in mirror_dir.rglob('*') if path.is_file()):
@@ -137,23 +141,12 @@ def compare_managed_files(live_codex: Path, drift: Drift) -> None:
             if should_skip(rel):
                 continue
             compare_file(mirror_path, live_codex / rel, rel, drift)
-        if live_dir.exists():
-            for live_path in sorted(path for path in live_dir.rglob('*') if path.is_file()):
-                rel = live_path.relative_to(live_codex)
-                if should_skip(rel):
-                    continue
-                mirror_path = MIRROR_CODEX / rel
-                if not mirror_path.exists():
-                    drift.add(f'live managed file has no mirror counterpart: {rel}')
 
 
 def compare_profile_files(live_codex: Path, drift: Drift) -> None:
     mirror_profiles = {path.name: path for path in MIRROR_CODEX.glob('*.config.toml')}
-    live_profiles = {path.name: path for path in live_codex.glob('*.config.toml')}
     for name, mirror_path in sorted(mirror_profiles.items()):
         compare_file(mirror_path, live_codex / name, Path(name), drift)
-    for name in sorted(set(live_profiles) - set(mirror_profiles)):
-        drift.add(f'live managed profile file has no mirror counterpart: {name}')
 
 
 def should_skip(rel: Path) -> bool:

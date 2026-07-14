@@ -13,6 +13,7 @@ import filecmp
 import fnmatch
 import json
 import os
+import shlex
 import shutil
 import stat
 import subprocess
@@ -35,6 +36,7 @@ HOME = Path.home()
 LIVE_CODEX = HOME / ".codex"
 LIVE_AGENTS = HOME / ".agents"
 BACKUP_ROOT = HOME / ".codex-agentcore-backups"
+MANIFEST_PATH = LIVE_CODEX / "agentcore-manifest.json"
 
 SKIP_NAMES = {
     ".git",
@@ -90,7 +92,7 @@ class Plan:
 
     def __init__(self, dry_run: bool) -> None:
         self.dry_run = dry_run
-        self.backup_dir = BACKUP_ROOT / datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.backup_dir = BACKUP_ROOT / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         self.actions: list[str] = []
         self.backed_up: list[Path] = []
 
@@ -99,8 +101,14 @@ class Plan:
 
     def ensure_dir(self, path: Path, mode: int | None = None) -> None:
         self.note(f"ensure directory {path}")
+        collision = path.is_symlink() or (path.exists() and not path.is_dir())
+        if collision:
+            self.backup(path)
+            self.note(f"replace non-directory path {path}")
         if self.dry_run:
             return
+        if collision:
+            path.unlink()
         path.mkdir(parents=True, exist_ok=True)
         if mode is not None:
             chmod_best_effort(path, mode)
@@ -123,7 +131,7 @@ class Plan:
         self.backed_up.append(path)
 
     def replace_file(self, src: Path, dst: Path, mode: int | None = None) -> None:
-        if dst.exists() and files_equal(src, dst):
+        if not dst.is_symlink() and dst.exists() and files_equal(src, dst):
             self.note(f"unchanged file {dst}")
             return
         self.backup(dst)
@@ -131,9 +139,31 @@ class Plan:
         if self.dry_run:
             return
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        if dst.is_dir() and not dst.is_symlink():
+            shutil.rmtree(dst)
+        elif dst.is_symlink():
+            dst.unlink()
+        with tempfile.NamedTemporaryFile(dir=str(dst.parent), delete=False) as handle:
+            tmp_name = handle.name
+        try:
+            shutil.copy2(src, tmp_name)
+            os.replace(tmp_name, dst)
+        finally:
+            Path(tmp_name).unlink(missing_ok=True)
         if mode is not None:
             chmod_best_effort(dst, mode)
+
+    def remove_path(self, path: Path) -> None:
+        if not path.exists() and not path.is_symlink():
+            return
+        self.backup(path)
+        self.note(f"remove stale managed path {path}")
+        if self.dry_run:
+            return
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
 
     def write_text_atomic(self, dst: Path, content: str, mode: int | None = None) -> None:
         current = dst.read_text(encoding="utf-8") if dst.exists() else None
@@ -201,45 +231,92 @@ def install(plan: Plan) -> None:
     plan.ensure_dir(BACKUP_ROOT, 0o700)
     plan.ensure_dir(LIVE_CODEX / "tmp", 0o700)
 
+    previous_manifest = load_install_manifest()
+    installed_trees: dict[str, list[str]] = {}
     for dirname in ("agents", "rules", "templates", "evals", "hooks"):
-        copy_tree_contents(SRC_CODEX / dirname, LIVE_CODEX / dirname, plan)
+        key = f".codex/{dirname}"
+        installed_trees[key] = sync_tree_contents(
+            SRC_CODEX / dirname,
+            LIVE_CODEX / dirname,
+            plan,
+            set(previous_manifest.get(key, [])),
+        )
 
-    for name in ("AGENTS.md", "README.md", "hooks.json"):
+    for name in ("AGENTS.md", "README.md"):
         src = SRC_CODEX / name
         if src.exists():
             plan.replace_file(src, LIVE_CODEX / name)
 
+    plan.write_text_atomic(LIVE_CODEX / "hooks.json", build_rendered_hooks_config())
+
     for src in sorted(SRC_CODEX.glob(PROFILE_CONFIG_GLOB)):
         plan.replace_file(src, LIVE_CODEX / src.name, 0o600)
+    profile_key = ".codex/profiles"
+    profile_names = {src.name for src in SRC_CODEX.glob(PROFILE_CONFIG_GLOB)}
+    for stale_name in sorted(set(previous_manifest.get(profile_key, [])) - profile_names):
+        rel = Path(stale_name)
+        if not safe_profile_manifest_name(stale_name):
+            plan.note(f"skip invalid stale managed profile entry {stale_name}")
+            continue
+        stale_path = contained_manifest_path(LIVE_CODEX, rel)
+        if stale_path is None or path_has_symlink_ancestor(LIVE_CODEX, rel):
+            plan.note(f"skip stale managed profile outside root {LIVE_CODEX / rel}")
+        elif stale_path.is_dir() and not stale_path.is_symlink():
+            plan.note(f"skip stale managed profile that became a directory {stale_path}")
+        else:
+            plan.remove_path(stale_path)
+    installed_trees[profile_key] = sorted(profile_names)
 
-    install_version_json(plan)
-    copy_tree_contents(SRC_AGENTS / "skills", LIVE_AGENTS / "skills", plan)
+    skills_key = ".agents/skills"
+    installed_trees[skills_key] = sync_tree_contents(
+        SRC_AGENTS / "skills",
+        LIVE_AGENTS / "skills",
+        plan,
+        set(previous_manifest.get(skills_key, [])),
+    )
     agents_readme = SRC_AGENTS / "README.md"
     if agents_readme.exists():
         plan.replace_file(agents_readme, LIVE_AGENTS / "README.md")
 
     merged_config = build_merged_config()
     plan.write_text_atomic(LIVE_CODEX / "config.toml", merged_config, 0o600)
+    manifest_text = json.dumps(
+        {"schema_version": 1, "managed_trees": installed_trees},
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+    plan.write_text_atomic(MANIFEST_PATH, manifest_text, 0o600)
 
 
-def install_version_json(plan: Plan) -> None:
-    src = SRC_CODEX / "version.json"
-    dst = LIVE_CODEX / "version.json"
-    if not src.exists():
-        return
-    if not dst.exists():
-        plan.replace_file(src, dst)
-        return
-    if version_tuple(src) >= version_tuple(dst):
-        plan.replace_file(src, dst)
-    else:
-        plan.note(f"preserve live version file because repo version is not newer: {dst}")
-
-
-def copy_tree_contents(src_dir: Path, dst_dir: Path, plan: Plan) -> None:
+def sync_tree_contents(
+    src_dir: Path,
+    dst_dir: Path,
+    plan: Plan,
+    previously_managed: set[str] | None = None,
+) -> list[str]:
     if not src_dir.exists():
-        return
+        return []
     plan.ensure_dir(dst_dir)
+    source_files = {
+        str(src.relative_to(src_dir))
+        for src in src_dir.rglob("*")
+        if src.is_file() and not should_skip(src.relative_to(src_dir))
+    }
+    for rel_text in sorted(previously_managed or set()):
+        rel = Path(rel_text)
+        if not safe_manifest_relative_path(rel) or rel_text in source_files:
+            continue
+        candidate = contained_manifest_path(dst_dir, rel)
+        if candidate is None:
+            plan.note(f"skip stale managed path outside root {dst_dir / rel}")
+            continue
+        if path_has_symlink_ancestor(dst_dir, rel):
+            plan.note(f"skip stale managed path through symlinked directory {dst_dir / rel}")
+            continue
+        if candidate.is_dir() and not candidate.is_symlink():
+            plan.note(f"skip stale managed file that became a directory {candidate}")
+            continue
+        plan.remove_path(candidate)
     for src in sorted(src_dir.rglob("*")):
         rel = src.relative_to(src_dir)
         if should_skip(rel):
@@ -249,6 +326,94 @@ def copy_tree_contents(src_dir: Path, dst_dir: Path, plan: Plan) -> None:
             plan.ensure_dir(dst)
         elif src.is_file():
             plan.replace_file(src, dst)
+    return sorted(source_files)
+
+
+def build_rendered_hooks_config(python_executable: str | None = None) -> str:
+    template = json.loads((SRC_CODEX / "hooks.json").read_text(encoding="utf-8"))
+    executable = python_executable or str(Path(sys.executable).resolve())
+    python_command_windows = subprocess.list2cmdline([executable])
+    python_command_posix = shlex.quote(executable)
+    for groups in template.get("hooks", {}).values():
+        for group in groups:
+            for hook in group.get("hooks", []):
+                command = hook.get("commandWindows")
+                if isinstance(command, str):
+                    hook["commandWindows"] = command.replace(
+                        "{{PYTHON_EXECUTABLE}}", python_command_windows
+                    )
+                command = hook.get("command")
+                if isinstance(command, str):
+                    hook["command"] = command.replace(
+                        "{{PYTHON_EXECUTABLE_POSIX}}", python_command_posix
+                    )
+    rendered = json.dumps(template, indent=2) + "\n"
+    if "{{PYTHON_EXECUTABLE" in rendered:
+        raise ValueError("unresolved Python executable placeholder in hooks.json")
+    return rendered
+
+
+def safe_manifest_relative_path(path: Path) -> bool:
+    return (
+        bool(path.parts)
+        and not path.is_absolute()
+        and not path.anchor
+        and not path.drive
+        and not path.root
+        and ".." not in path.parts
+    )
+
+
+def safe_profile_manifest_name(value: str) -> bool:
+    path = Path(value)
+    return (
+        path.name == value
+        and value.endswith(PROFILE_CONFIG_GLOB.removeprefix("*"))
+        and safe_manifest_relative_path(path)
+    )
+
+
+def contained_manifest_path(root: Path, relative: Path) -> Path | None:
+    if not safe_manifest_relative_path(relative):
+        return None
+    resolved_root = root.resolve(strict=False)
+    candidate = (root / relative).resolve(strict=False)
+    return candidate if candidate.is_relative_to(resolved_root) else None
+
+
+def path_has_symlink_ancestor(root: Path, relative: Path) -> bool:
+    current = root
+    if current.is_symlink():
+        return True
+    for part in relative.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
+
+
+def load_install_manifest() -> dict[str, list[str]]:
+    if not MANIFEST_PATH.exists() or MANIFEST_PATH.is_symlink():
+        return {}
+    try:
+        payload = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        return {}
+    trees = payload.get("managed_trees")
+    if not isinstance(trees, dict):
+        return {}
+    result: dict[str, list[str]] = {}
+    for key, values in trees.items():
+        if not isinstance(key, str) or not isinstance(values, list):
+            continue
+        result[key] = [
+            value
+            for value in values
+            if isinstance(value, str) and safe_manifest_relative_path(Path(value))
+        ]
+    return result
 
 
 def build_merged_config() -> str:
@@ -624,26 +789,12 @@ def files_equal(src: Path, dst: Path) -> bool:
     return dst.exists() and src.is_file() and dst.is_file() and filecmp.cmp(src, dst, shallow=False)
 
 
-def version_tuple(path: Path) -> tuple[int, ...]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        version = str(data.get("version") or data.get("latest_version") or "0")
-    except Exception:
-        return (0,)
-    result: list[int] = []
-    for part in version.replace("-", ".").split("."):
-        if part.isdigit():
-            result.append(int(part))
-        else:
-            break
-    return tuple(result) or (0,)
-
-
 def chmod_best_effort(path: Path, mode: int) -> None:
     try:
         path.chmod(mode)
     except OSError:
-        pass
+        if os.name != "nt":
+            raise
 
 
 if __name__ == "__main__":

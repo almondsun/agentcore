@@ -58,6 +58,22 @@ These evals are designed to catch regressions in:
 - validation/reporting behavior
 - specialist selection behavior
 
+## Evidence model
+
+Automated runs use two separate model turns. The subject receives only a
+dedicated natural-task file and the changed patch or workspace; it never sees
+the expected subagents, pass criteria, fail signals, or outcome labels. The
+runner captures the subject's JSONL event trace, final message, actual workspace
+diff, and no-execution static parse evidence for implementation cases. A separate
+read-only grading turn receives that evidence plus the rubric and emits the
+structured result record.
+
+This separation prevents rubric leakage and avoids treating the subject's own
+claims about edits, tests, tools, or subagents as ground truth. Model grading
+still requires human calibration. Deterministic parse failures and missing
+implementation changes are hard failures; test claims remain trace evidence and
+are never re-executed unsandboxed by the harness.
+
 ## Layout
 
 ```text
@@ -108,8 +124,11 @@ These evals are designed to catch regressions in:
       batch-negative-summary.json
       batch-summary.json
       <case-id>.json
-      <case-id>.raw.json
       <case-id>.prompt.txt
+      <case-id>.subject.txt
+      <case-id>.trace.jsonl
+      <case-id>.grader.prompt.txt
+      <case-id>.grader.raw.json
       workspaces/
         <case-id>/
   schema/
@@ -176,7 +195,10 @@ Tiers:
 - `MEDIUM`: cross-module API and CLI contract change with repo inspection and broader validation; bounded `pr-explorer` use is optional when direct inspection is sufficient
 - `HARD`: parser and subprocess hardening with a justified `security-auditor` post-change audit; unresolved audit findings must close as `fail`, not soft success
 
-All three tiers are safely automatable with the current runner because each uses a tiny self-contained Python repo, the existing `repo-bugfix` automation mode, and repo-native `pytest` validation without requiring new trace collection or a separate manual lane.
+All three tiers are safely automatable with the current runner because each uses
+a tiny self-contained Python repo and the existing `repo-bugfix` mode. The
+subject runs repo-native validation inside its Codex sandbox; the host harness
+only performs non-executing syntax and data-format checks.
 
 ## Result Record Convention
 
@@ -303,10 +325,11 @@ Each automated run:
 
 1. loads the case and fixture metadata
 2. stages a disposable workspace copy under `results/<date>/workspaces/<case-id>/`
-3. builds a deterministic prompt from the case and fixture files
-4. runs `codex exec` with `--output-schema`
-5. saves the raw structured final message as `<case-id>.raw.json`
-6. writes the comparable result record as `<case-id>.json`
+3. builds a blind subject prompt from a dedicated natural-task file
+4. runs the subject with JSONL tracing and saves its normal final message
+5. captures the actual workspace diff and independent no-execution parse evidence
+6. runs a separate read-only grader with the rubric and captured evidence
+7. writes the comparable result record as `<case-id>.json`
 
 Positive automation uses the original result-record schema and comparison flow. Negative automation uses the dedicated false-trigger schema and comparison script, but the same runner entry point and batch wrapper.
 
@@ -594,7 +617,10 @@ python3 scripts/run_batch.py \
 2. Run `run_automated_case.py`.
 3. Inspect:
    - `<case-id>.prompt.txt`
-   - `<case-id>.raw.json`
+   - `<case-id>.subject.txt`
+   - `<case-id>.trace.jsonl`
+   - `<case-id>.grader.prompt.txt`
+   - `<case-id>.grader.raw.json`
    - `<case-id>.json`
    - `workspaces/<case-id>/` when the case edited files
 4. Compare `<case-id>.json` to its stored baseline with `compare_results.py`.
@@ -607,7 +633,10 @@ For specialist-positive cases, the same loop applies, but the evaluation target 
 2. Run `run_automated_case.py` with that negative case id.
 3. Inspect:
    - `<case-id>.prompt.txt`
-   - `<case-id>.raw.json`
+   - `<case-id>.subject.txt`
+   - `<case-id>.trace.jsonl`
+   - `<case-id>.grader.prompt.txt`
+   - `<case-id>.grader.raw.json`
    - `<case-id>.json`
    - `workspaces/<case-id>/`, which is an empty disposable workspace for prompt-only false-trigger runs and a staged fixture copy for fixture-backed negative runs
 4. Compare `<case-id>.json` to its stored baseline with `compare_false_trigger_results.py`.
@@ -626,7 +655,7 @@ Negative automation differs from positive automation in one important way: it is
    - `REGRESSION`: worse than baseline
    - `ERROR`: the case runner or comparison step failed
    - `RECORDED`: the case ran successfully with `--no-compare`
-   - `DRY-RUN`: prompt staging completed and `codex exec` was not invoked
+   - `DRY-RUN`: blind prompt preview completed; subject and grader were not invoked
 3. Inspect `results/<date>/batch-summary.json` or the custom `--summary-file` path for a machine-readable record of the batch:
    For negative-only runs, the default summary file is `results/<date>/batch-negative-summary.json`.
    For combined runs, the default summary file is `results/<date>/batch-all-summary.json`.
@@ -637,7 +666,9 @@ Negative automation differs from positive automation in one important way: it is
    - one entry per case with status, paths, runner/comparison exit codes, and `automation_kind`
 4. When needed, inspect the underlying per-case artifacts:
    - `<case-id>.prompt.txt`
-   - `<case-id>.raw.json`
+   - `<case-id>.subject.txt`
+   - `<case-id>.trace.jsonl`
+   - `<case-id>.grader.raw.json`
    - `<case-id>.json`
    - `workspaces/<case-id>/` for implementation cases
 
@@ -798,9 +829,8 @@ No cases in the current harness remain manual after this iteration.
 After this final negative-coverage iteration, the highest-value next steps are:
 
 1. Add one or two more fixture-backed negative cases for other specialist boundaries so false-trigger precision is tested against more than one diff family.
-2. Tighten specialist-positive and specialist-negative prompt shaping further if any role shows persistent self-reporting noise, instead of adding a new framework.
-3. Add a CI-facing wrapper that reuses the same runners and compare scripts, without introducing a separate CI-only framework.
-4. Expand coverage to:
+2. Human-calibrate the independent grader on a representative sample and add deterministic trace extractors for tool/subagent events.
+3. Expand coverage to:
    - `docs-researcher`
    - `pr-explorer`
    - `structured-review-record`
