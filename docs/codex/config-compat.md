@@ -1,6 +1,6 @@
 # Codex Config Compatibility
 
-These notes capture the compatibility rules verified against `codex-cli 0.144.4`.
+These notes capture the compatibility rules verified against `codex-cli 0.145.0`.
 The machine-readable contract is `openai/dot-codex/compatibility.json`.
 
 ## Validation contract
@@ -118,11 +118,15 @@ Use `python` rather than `python3` on stock Windows unless `python3` is known to
 be configured. The `python3` launcher can be a Microsoft Store alias that exits
 before running the bootstrap helper.
 
-## 0.144.4 / GPT-5.6 notes
+## 0.145.0 / GPT-5.6 notes
 
 - `gpt-5.6-sol` is the current flagship default in this baseline. The migration
   preserves medium reasoning effort as the first comparison point recommended by
   the GPT-5.6 upgrade guidance.
+- Multi-agent V2 is stable but remains opt-in in Codex 0.145.0. This baseline
+  enables it and uses the canonical
+  `agents.max_concurrent_threads_per_session` setting instead of the legacy
+  `agents.max_threads` alias.
 - `allow_login_shell = false` and `shell_environment_policy.inherit = "core"`
   reduce ambient startup authority. Opt into broader shell behavior only for a
   concrete trusted workflow.

@@ -243,7 +243,7 @@ After installation or merge, run the strongest local validation available:
    codex --version
    if the binary exists.
 8. Confirm the sandbox can start when the platform exposes that subcommand:
-   codex sandbox linux pwd
+   codex sandbox pwd
    If it fails because the Codex runtime path is not visible, adjust only the
    live machine-local [permissions.workspace.filesystem] read grant. Do not add
    that host path to openai/dot-codex/config.toml.

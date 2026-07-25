@@ -36,7 +36,7 @@ Install at least the version in `openai/dot-codex/compatibility.json` into the
 same npm prefix used by the active Node runtime:
 
 ```bash
-npm install -g @openai/codex@0.144.4
+npm install -g @openai/codex@0.145.0
 hash -r
 codex doctor --summary --no-color --ascii
 ```
