@@ -7,8 +7,8 @@ import importlib.util
 import json
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path, PureWindowsPath
-from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -352,7 +352,7 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
             owned.write_text("{}\n", encoding="utf-8")
             plan = self.bootstrap.Plan(dry_run=False)
 
-            with mock.patch.object(
+            with unittest.mock.patch.object(
                 self.bootstrap,
                 "backup_retired_leaf",
                 side_effect=OSError("backup failed"),
@@ -377,7 +377,7 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
                 owned.mkdir()
                 (owned / "unowned.txt").write_text("preserve\n", encoding="utf-8")
 
-            with mock.patch.object(
+            with unittest.mock.patch.object(
                 self.bootstrap,
                 "backup_retired_leaf",
                 side_effect=swap_to_directory,
@@ -464,7 +464,7 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
                     ({}, self.bootstrap.os.name != "posix"),
                 )
                 manifest.chmod(0o600)
-                with mock.patch.object(self.bootstrap, "MAX_MANIFEST_BYTES", 1):
+                with unittest.mock.patch.object(self.bootstrap, "MAX_MANIFEST_BYTES", 1):
                     self.assertEqual(
                         self.bootstrap.load_install_manifest_state(),
                         ({}, False),
@@ -483,7 +483,7 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
             old_manifest = self.bootstrap.MANIFEST_PATH
             self.bootstrap.MANIFEST_PATH = manifest
             try:
-                with mock.patch.object(self.bootstrap.os, "name", "nt"):
+                with unittest.mock.patch.object(self.bootstrap.os, "name", "nt"):
                     self.assertEqual(
                         self.bootstrap.load_install_manifest_state(),
                         ({}, True),
@@ -529,7 +529,7 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
             self.bootstrap.MANIFEST_PATH = manifest
             self.bootstrap.BACKUP_ROOT = base / "backups"
             try:
-                with mock.patch.object(self.bootstrap.os, "replace", side_effect=OSError("replace failed")):
+                with unittest.mock.patch.object(self.bootstrap.os, "replace", side_effect=OSError("replace failed")):
                     with self.assertRaisesRegex(OSError, "replace failed"):
                         self.bootstrap.write_install_manifest(
                             self.bootstrap.Plan(dry_run=False), {".codex/hooks": ["guard.py"]}
@@ -604,9 +604,9 @@ class BootstrapFilesystemSafetyTests(unittest.TestCase):
             self.bootstrap.BACKUP_ROOT = base / "backups"
             self.bootstrap.MANIFEST_PATH = manifest
             try:
-                with mock.patch.object(
+                with unittest.mock.patch.object(
                     self.bootstrap, "build_rendered_hooks_config", return_value="{}\n"
-                ), mock.patch.object(
+                ), unittest.mock.patch.object(
                     self.bootstrap, "build_merged_config", return_value="model = 'test'\n"
                 ):
                     self.bootstrap.install(self.bootstrap.Plan(dry_run=False))
