@@ -25,7 +25,29 @@ def main() -> int:
         ('edit blocks dotenv path', tool('Edit', {'file_path': '.env.local', 'old_string': 'a', 'new_string': 'b'}), True),
         ('read blocks private ssh key', tool('Read', {'file_path': '/home/mitin/.ssh/id_ed25519'}), True),
         ('safe config grep remains allowed', bash("rg -n 'allow_login_shell' ~/.codex/config.toml"), False),
+        (
+            'credential diagnostic regex remains allowed',
+            bash("journalctl --user -b | rg -i \"invalid keyring|couldn't create credential|authentication required\""),
+            False,
+        ),
+        (
+            'patch prose about credentials remains allowed',
+            tool(
+                'apply_patch',
+                {
+                    'command': (
+                        '*** Begin Patch\n*** Update File: README.md\n@@\n'
+                        '-old\n+Credentials and private-key material stay local.\n*** End Patch'
+                    )
+                },
+            ),
+            False,
+        ),
         ('safe ordinary edit remains allowed', tool('Edit', {'file_path': 'README.md', 'old_string': 'a', 'new_string': 'b'}), False),
+        ('read blocks relative credentials file', tool('Read', {'file_path': 'config/credentials.json'}), True),
+        ('bash blocks relative credentials file', bash('cat credentials.json'), True),
+        ('patch blocks dotenv target', tool('apply_patch', {'command': '*** Begin Patch\n*** Update File: .env\n@@\n-a\n+b\n*** End Patch'}), True),
+        ('patch blocks move to dotenv target', tool('apply_patch', {'command': '*** Begin Patch\n*** Update File: config.txt\n*** Move to: .env\n@@\n-a\n+b\n*** End Patch'}), True),
         ('bash blocks rm flag permutation', bash('rm -fr /'), True),
         ('bash blocks legacy OpenAI key', bash('tool --token ' + 's' + 'k-' + 'A' * 40), True),
     ]
