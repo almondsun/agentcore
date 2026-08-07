@@ -1,6 +1,6 @@
 # Codex Config Compatibility
 
-These notes capture the compatibility rules verified against `codex-cli 0.145.0`.
+These notes capture the compatibility rules verified against `codex-cli 0.147.0`.
 The machine-readable contract is `openai/dot-codex/compatibility.json`.
 
 ## Validation contract
@@ -118,7 +118,7 @@ Use `python` rather than `python3` on stock Windows unless `python3` is known to
 be configured. The `python3` launcher can be a Microsoft Store alias that exits
 before running the bootstrap helper.
 
-## 0.145.0 / GPT-5.6 notes
+## 0.145.0+ / GPT-5.6 notes
 
 - `gpt-5.6-sol` is the current flagship default in this baseline. The migration
   preserves medium reasoning effort as the first comparison point recommended by

@@ -7,7 +7,6 @@ import json
 import re
 import shlex
 import sys
-from collections.abc import Iterable
 from typing import Any
 
 
@@ -27,8 +26,6 @@ SECRET_PATTERNS = [
     ("a private key block", re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),
 ]
 
-
-
 SECRET_PATH_PATTERNS = [
     ("a dotenv file", re.compile(r"(?i)(^|[/\\])\.env(?:\.[A-Za-z0-9_-]+)?$")),
     ("a PEM key or certificate file", re.compile(r"(?i)(^|[/\\])[^/\\]+\.pem$")),
@@ -39,6 +36,7 @@ SECRET_PATH_PATTERNS = [
     ("a private-key path", re.compile(r"(?i)(^|[/\\])[^/\\]*private[-_]?key[^/\\]*$")),
 ]
 
+
 def _tool_input_text(tool_input: Any) -> str:
     if isinstance(tool_input, dict):
         command = tool_input.get("command")
@@ -48,17 +46,6 @@ def _tool_input_text(tool_input: Any) -> str:
         return json.dumps(tool_input, sort_keys=True)
     except (TypeError, ValueError):
         return str(tool_input)
-
-
-def _iter_strings(value: Any) -> Iterable[str]:
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _iter_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _iter_strings(item)
 
 
 def _candidate_path_tokens(text: str) -> list[str]:
@@ -73,13 +60,63 @@ def _candidate_path_tokens(text: str) -> list[str]:
     return tokens
 
 
-def _secret_path_reason(tool_input: Any) -> str | None:
-    for value in _iter_strings(tool_input):
-        for token in _candidate_path_tokens(value):
-            cleaned = token.strip('"\'`,;:()[]{}<>')
-            for label, pattern in SECRET_PATH_PATTERNS:
-                if pattern.search(cleaned):
-                    return f"Blocked tool request because it references {label}: {cleaned}."
+def _looks_like_shell_path(token: str) -> bool:
+    if token.startswith(("/", "./", "../", "~/", ".\\", "..\\", "~\\")):
+        return True
+    if "/" in token or "\\" in token:
+        return True
+    return bool(
+        re.search(
+            r"(?i)(?:\.env(?:\.[A-Za-z0-9_-]+)?|\.pem|\.p12|\.pfx|\.json|id_(?:rsa|dsa|ecdsa|ed25519))$",
+            token,
+        )
+    )
+
+
+def _structured_paths(value: Any) -> list[str]:
+    if not isinstance(value, dict):
+        return []
+    paths: list[str] = []
+    for key, item in value.items():
+        normalized = str(key).lower().replace("-", "_")
+        if normalized in {"path", "file", "file_path", "filepath", "target_path"}:
+            if isinstance(item, str):
+                paths.append(item)
+            elif isinstance(item, list):
+                paths.extend(entry for entry in item if isinstance(entry, str))
+    return paths
+
+
+def _patch_paths(command: str) -> list[str]:
+    paths: list[str] = []
+    for line in command.splitlines():
+        match = re.match(r"\*\*\* (?:(?:Add|Update|Delete) File|Move to):\s*(.+?)\s*$", line)
+        if match:
+            paths.append(match.group(1))
+    return paths
+
+
+def _candidate_paths(tool_name: Any, tool_input: Any) -> list[str]:
+    if not isinstance(tool_input, dict):
+        return []
+    command = tool_input.get("command")
+    if tool_name == "Bash" and isinstance(command, str):
+        return [
+            token.strip('"\'`,;:()[]{}<>')
+            for token in _candidate_path_tokens(command)
+            if _looks_like_shell_path(token.strip('"\'`,;:()[]{}<>'))
+        ]
+    if tool_name == "apply_patch" and isinstance(command, str):
+        return _patch_paths(command)
+    return _structured_paths(tool_input)
+
+
+def _secret_path_reason(tool_name: Any, tool_input: Any) -> str | None:
+    for path in _candidate_paths(tool_name, tool_input):
+        cleaned = path.strip('"\'`,;:()[]{}<>')
+        for label, pattern in SECRET_PATH_PATTERNS:
+            if pattern.search(cleaned):
+                return f"Blocked tool request because it references {label}: {cleaned}."
     return None
 
 
@@ -113,7 +150,7 @@ def main() -> int:
                 _block(f"Blocked catastrophic command pattern before execution: {reason}.")
                 return 0
 
-    secret_path_reason = _secret_path_reason(tool_input)
+    secret_path_reason = _secret_path_reason(tool_name, tool_input)
     if secret_path_reason:
         _block(secret_path_reason)
         return 0
