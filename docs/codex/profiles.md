@@ -79,3 +79,12 @@ Use for scripted inspection and non-interactive checks.
 - Web: disabled.
 - Reasoning: low.
 - Verbosity: low.
+
+## `sol`
+
+Use when GPT-6 Astra is unavailable on the active account or surface, or when a
+GPT-5.6 Sol comparison is useful.
+
+- Model: `gpt-5.6-sol`.
+- All other permissions, web, reasoning, and verbosity settings inherit from the
+  base configuration.

@@ -17,6 +17,7 @@ This mirror intentionally keeps the parts of the Codex environment that are usef
 - `rules/`: durable rule files
 - `README.md`: environment-map documentation
 - `compatibility.json`: maintained CLI/model compatibility contract for this baseline
+- `recommended-plugins.json`: opt-in curated plugin identifiers without caches or auth
 
 ## Intentionally excluded
 
@@ -59,5 +60,10 @@ portable. Keep trusted project paths, local plugin availability, and
 target-machine workspace roots or filesystem read grants in the live
 `~/.codex/config.toml`, generated under the `agentcore_workspace` permission
 profile for the current machine.
+
+The bootstrap normally leaves plugin installations untouched. Pass
+`--install-recommended-plugins` to install or refresh the curated developer set
+declared by `recommended-plugins.json`; this never removes other plugins or
+versions plugin authentication and runtime caches.
 
 The purpose of this directory is reproducibility and documentation, not full workstation cloning.

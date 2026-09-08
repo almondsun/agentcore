@@ -81,7 +81,12 @@ if not codex:
     print('warning: codex binary not found; skipped feature compatibility check')
     raise SystemExit(0)
 config = tomllib.loads(Path('openai/dot-codex/config.toml').read_text(encoding='utf-8'))
-enabled = {name for name, value in config.get('features', {}).items() if value is True}
+feature_config = config.get('features', {})
+enabled = {name for name, value in feature_config.items() if value is True}
+context_management = feature_config.get('context_management', {})
+if isinstance(context_management, dict) and context_management.get('experimental_mode') is True:
+    enabled.add('context_management')
+allowed_unstable = {'context_management'}
 try:
     result = subprocess.run(
         [codex, 'features', 'list'],
@@ -112,14 +117,14 @@ for line in result.stdout.splitlines():
         unstable.add(name)
 bad_removed = sorted(enabled & removed)
 bad_deprecated = sorted(enabled & deprecated)
-bad_unstable = sorted(enabled & unstable)
+bad_unstable = sorted((enabled & unstable) - allowed_unstable)
 if bad_removed:
     raise SystemExit('config enables removed Codex features: ' + ', '.join(bad_removed))
 if bad_deprecated:
     raise SystemExit('config enables deprecated Codex features: ' + ', '.join(bad_deprecated))
 if bad_unstable:
     raise SystemExit('config enables experimental/under-development Codex features: ' + ', '.join(bad_unstable))
-print('ok no enabled removed/deprecated/unstable features')
+print('ok no unexpected enabled removed/deprecated/unstable features')
 PYFEATURES
 
 echo "== custom skill integrity =="

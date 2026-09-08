@@ -13,6 +13,7 @@ import filecmp
 import fnmatch
 import json
 import os
+import re
 import secrets
 import shlex
 import shutil
@@ -38,6 +39,7 @@ LIVE_CODEX = HOME / ".codex"
 LIVE_AGENTS = HOME / ".agents"
 BACKUP_ROOT = HOME / ".codex-agentcore-backups"
 MANIFEST_PATH = LIVE_CODEX / "agentcore-manifest.json"
+RECOMMENDED_PLUGINS_PATH = SRC_CODEX / "recommended-plugins.json"
 
 SKIP_NAMES = {
     ".git",
@@ -89,6 +91,7 @@ PROFILE_CONFIG_GLOB = "*.config.toml"
 ACTIVE_CODEX_TREES = ("agents", "rules", "hooks")
 RETIRED_CODEX_TREES = ("templates", "evals")
 MAX_MANIFEST_BYTES = 1024 * 1024
+PLUGIN_IDENTIFIER_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 
 
 class Plan:
@@ -201,7 +204,15 @@ def main() -> int:
         action="store_true",
         help="validate repository and live Codex files without installing",
     )
+    parser.add_argument(
+        "--install-recommended-plugins",
+        action="store_true",
+        help="install the curated plugin set after the portable baseline validates",
+    )
     args = parser.parse_args()
+
+    if args.validate_only and args.install_recommended_plugins:
+        parser.error("--validate-only cannot be combined with --install-recommended-plugins")
 
     if not SRC_CODEX.exists() or not SRC_AGENTS.exists():
         print("agentcore mirror directories are missing", file=sys.stderr)
@@ -213,6 +224,8 @@ def main() -> int:
         install(plan)
 
     failures = validate()
+    if args.install_recommended_plugins and not failures:
+        failures.extend(install_recommended_plugins(plan))
     for action in plan.actions:
         print(action)
     if plan.backed_up:
@@ -295,6 +308,77 @@ def install(plan: Plan) -> None:
     merged_config = build_merged_config()
     plan.write_text_atomic(LIVE_CODEX / "config.toml", merged_config, 0o600)
     write_install_manifest(plan, installed_trees)
+
+
+def load_recommended_plugins() -> tuple[str, list[str]]:
+    """Load and validate the portable curated-plugin declaration."""
+
+    payload = json.loads(RECOMMENDED_PLUGINS_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("top level must be an object")
+    expected_keys = {"schema_version", "marketplace", "plugins"}
+    if set(payload) != expected_keys:
+        unexpected = sorted(set(payload) - expected_keys)
+        missing = sorted(expected_keys - set(payload))
+        details = []
+        if missing:
+            details.append("missing keys: " + ", ".join(missing))
+        if unexpected:
+            details.append("unexpected keys: " + ", ".join(unexpected))
+        raise ValueError("; ".join(details))
+    if payload["schema_version"] != 1:
+        raise ValueError("unsupported schema_version")
+
+    marketplace = payload["marketplace"]
+    plugins = payload["plugins"]
+    if not isinstance(marketplace, str) or not PLUGIN_IDENTIFIER_RE.fullmatch(marketplace):
+        raise ValueError("marketplace must be a lowercase identifier")
+    if not isinstance(plugins, list) or not plugins:
+        raise ValueError("plugins must be a non-empty array")
+    if any(not isinstance(plugin, str) or not PLUGIN_IDENTIFIER_RE.fullmatch(plugin) for plugin in plugins):
+        raise ValueError("plugin names must be lowercase identifiers")
+    if len(set(plugins)) != len(plugins):
+        raise ValueError("plugin names must be unique")
+    return marketplace, plugins
+
+
+def install_recommended_plugins(plan: Plan) -> list[str]:
+    """Install curated plugins explicitly requested by the bootstrap caller."""
+
+    try:
+        marketplace, plugins = load_recommended_plugins()
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as exc:
+        return [f"{RECOMMENDED_PLUGINS_PATH}: invalid recommended plugins: {exc}"]
+
+    codex = shutil.which("codex")
+    if not codex:
+        return ["codex binary not found; cannot install recommended plugins"]
+
+    failures: list[str] = []
+    for plugin in plugins:
+        selector = f"{plugin}@{marketplace}"
+        plan.note(f"install recommended plugin {selector}")
+        if plan.dry_run:
+            continue
+        try:
+            result = subprocess.run(
+                [codex, "plugin", "add", selector, "--json"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=120,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            failures.append(f"plugin install failed for {selector}: {exc}")
+            continue
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip().splitlines()
+            suffix = f": {detail[-1]}" if detail else ""
+            failures.append(
+                f"plugin install failed for {selector} (exit {result.returncode}){suffix}"
+            )
+    return failures
 
 
 def sync_tree_contents(
@@ -898,6 +982,11 @@ def replace_top_level_key(text: str, key: str, value: str) -> str:
 
 def validate() -> list[str]:
     failures: list[str] = []
+    try:
+        load_recommended_plugins()
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as exc:
+        failures.append(f"{RECOMMENDED_PLUGINS_PATH}: invalid recommended plugins: {exc}")
+
     toml_paths = [SRC_CODEX / "config.toml", LIVE_CODEX / "config.toml"]
     toml_paths.extend(sorted(SRC_CODEX.glob(PROFILE_CONFIG_GLOB)))
     toml_paths.extend(sorted(LIVE_CODEX.glob(PROFILE_CONFIG_GLOB)))

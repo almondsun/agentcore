@@ -39,7 +39,7 @@ Install at least the version in `openai/dot-codex/compatibility.json` into the
 same npm prefix used by the active Node runtime:
 
 ```bash
-npm install -g @openai/codex@0.147.0
+npm install -g @openai/codex@0.153.4
 hash -r
 codex doctor --summary --no-color --ascii
 ```
@@ -56,6 +56,11 @@ mise upgrade codex
 hash -r
 codex doctor --summary --no-color --ascii
 ```
+
+Run `mise upgrade codex` from a normal shell rather than through the Codex
+session being upgraded. Mise removes the replaced runtime after installation,
+which can invalidate that active session's command executor; start a fresh Codex
+session before continuing validation or bootstrap work.
 
 Mise may intentionally delay very recent releases through
 `--minimum-release-age`. Keep that safety delay unless the newest release is

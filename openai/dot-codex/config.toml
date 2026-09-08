@@ -17,8 +17,13 @@
 # Core model selection
 ################################################################################
 
-model = "gpt-5.6-sol"
+model = "gpt-6-astra"
 model_provider = "openai"
+
+# Prefer OS-backed credential storage while retaining Codex's supported
+# fallback on machines without a usable keyring.
+cli_auth_credentials_store = "auto"
+mcp_oauth_credentials_store = "auto"
 
 # Keep tone direct and engineering-focused.
 personality = "pragmatic"
@@ -27,7 +32,8 @@ personality = "pragmatic"
 # Reasoning and verbosity
 ################################################################################
 
-# Preserve the balanced GPT-5.5 baseline while migrating to GPT-5.6.
+# Keep a balanced default for Astra. Raise this only for workflows that benefit
+# from the additional latency and usage.
 model_reasoning_effort = "medium"
 
 # Keep planning at the same balanced default. Raise this in task-specific
@@ -127,10 +133,11 @@ ignore_default_excludes = false
 
 # Add a few extra credential-like patterns beyond the built-in KEY/SECRET/TOKEN
 # exclusions without being overly destructive to normal dev environments.
-exclude = ["*PASSWORD*", "*PRIVATE_KEY*", "*CREDENTIAL*"]
 
-# Leave empty to avoid accidentally stripping essential build variables.
-include_only = []
+[shell_environment_policy.filters]
+"*PASSWORD*" = "exclude"
+"*PRIVATE_KEY*" = "exclude"
+"*CREDENTIAL*" = "exclude"
 
 ################################################################################
 # History and TUI behavior
@@ -143,6 +150,7 @@ max_bytes = 5242880
 [tui]
 # Keep the terminal quiet by default.
 notifications = false
+auto_recap = true
 theme = "catppuccin-mocha"
 status_line = ["model-with-reasoning", "current-dir", "five-hour-limit", "weekly-limit", "context-remaining", "codex-version"]
 status_line_use_colors = true
@@ -156,6 +164,8 @@ apps = true
 browser_use = true
 browser_use_external = false
 computer_use = false
+fast_mode = true
+goals = true
 multi_agent = true
 multi_agent_v2 = true
 personality = true
@@ -163,18 +173,30 @@ hooks = true
 guardian_approval = true
 image_generation = true
 in_app_browser = true
-skill_mcp_dependency_install = false
+memories = true
+remote_plugin = true
+shell_snapshot = true
+skill_mcp_dependency_install = true
+skill_search = true
 tool_suggest = true
+unified_exec = true
 workspace_dependencies = true
+
+[features.context_management]
+# Opt-in for eligible ChatGPT accounts. This remains experimental and should be
+# revalidated on every CLI upgrade.
+experimental_mode = true
 
 ################################################################################
 # Memories
 ################################################################################
 
 [memories]
-# Avoid generating durable memories from threads that used MCP, web search, or
-# tool search. Stable rules remain in AGENTS.md and checked-in docs.
-generate_memories = false
+# Learn from local coding threads while excluding sessions that used MCP, web
+# search, or tool search. Stable team rules remain in AGENTS.md and checked-in
+# docs rather than memory.
+generate_memories = true
+use_memories = true
 disable_on_external_context = true
 
 ################################################################################

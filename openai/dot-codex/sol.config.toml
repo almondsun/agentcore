@@ -1,0 +1,2 @@
+# Use when GPT-6 Astra is unavailable or a GPT-5.6 Sol comparison is useful.
+model = "gpt-5.6-sol"

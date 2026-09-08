@@ -126,6 +126,10 @@ python scripts\bootstrap_codex_environment.py --dry-run
 python scripts\bootstrap_codex_environment.py
 ```
 
+To install the curated developer plugins as an explicit opt-in, add
+`--install-recommended-plugins` to both commands. Plugin authentication and
+runtime caches remain local to the target machine.
+
 The dry run should be reviewed first on machines that already have a
 `%USERPROFILE%\.codex\config.toml` or `%USERPROFILE%\.agents\` directory. The
 real run creates timestamped backups under

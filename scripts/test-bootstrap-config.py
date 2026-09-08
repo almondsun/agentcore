@@ -80,6 +80,124 @@ extends = ":workspace"
         self.assertEqual(failures, [])
 
 
+class RecommendedPluginTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.bootstrap = load_bootstrap_module()
+
+    def write_manifest(self, root: Path, payload: object) -> Path:
+        manifest = root / "recommended-plugins.json"
+        manifest.write_text(json.dumps(payload), encoding="utf-8")
+        self.bootstrap.RECOMMENDED_PLUGINS_PATH = manifest
+        return manifest
+
+    def test_recommended_plugin_manifest_loads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.write_manifest(
+                Path(tmp),
+                {
+                    "schema_version": 1,
+                    "marketplace": "openai-curated",
+                    "plugins": ["github", "openai-developers", "codex-security"],
+                },
+            )
+            self.assertEqual(
+                self.bootstrap.load_recommended_plugins(),
+                (
+                    "openai-curated",
+                    ["github", "openai-developers", "codex-security"],
+                ),
+            )
+
+    def test_recommended_plugin_manifest_rejects_duplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.write_manifest(
+                Path(tmp),
+                {
+                    "schema_version": 1,
+                    "marketplace": "openai-curated",
+                    "plugins": ["github", "github"],
+                },
+            )
+            with self.assertRaisesRegex(ValueError, "must be unique"):
+                self.bootstrap.load_recommended_plugins()
+
+    def test_recommended_plugin_dry_run_has_no_subprocess(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.write_manifest(
+                Path(tmp),
+                {
+                    "schema_version": 1,
+                    "marketplace": "openai-curated",
+                    "plugins": ["github"],
+                },
+            )
+            plan = self.bootstrap.Plan(dry_run=True)
+            with unittest.mock.patch.object(
+                self.bootstrap.shutil, "which", return_value="/usr/bin/codex"
+            ), unittest.mock.patch.object(self.bootstrap.subprocess, "run") as run:
+                failures = self.bootstrap.install_recommended_plugins(plan)
+
+            self.assertEqual(failures, [])
+            self.assertEqual(plan.actions, ["install recommended plugin github@openai-curated"])
+            run.assert_not_called()
+
+    def test_recommended_plugin_install_uses_exact_arguments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.write_manifest(
+                Path(tmp),
+                {
+                    "schema_version": 1,
+                    "marketplace": "openai-curated",
+                    "plugins": ["github"],
+                },
+            )
+            plan = self.bootstrap.Plan(dry_run=False)
+            completed = unittest.mock.Mock(returncode=0, stdout="{}", stderr="")
+            with unittest.mock.patch.object(
+                self.bootstrap.shutil, "which", return_value="/usr/bin/codex"
+            ), unittest.mock.patch.object(
+                self.bootstrap.subprocess, "run", return_value=completed
+            ) as run:
+                failures = self.bootstrap.install_recommended_plugins(plan)
+
+            self.assertEqual(failures, [])
+            run.assert_called_once_with(
+                ["/usr/bin/codex", "plugin", "add", "github@openai-curated", "--json"],
+                text=True,
+                stdout=self.bootstrap.subprocess.PIPE,
+                stderr=self.bootstrap.subprocess.PIPE,
+                check=False,
+                timeout=120,
+            )
+
+    def test_recommended_plugin_install_reports_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.write_manifest(
+                Path(tmp),
+                {
+                    "schema_version": 1,
+                    "marketplace": "openai-curated",
+                    "plugins": ["github"],
+                },
+            )
+            plan = self.bootstrap.Plan(dry_run=False)
+            completed = unittest.mock.Mock(returncode=7, stdout="", stderr="network unavailable\n")
+            with unittest.mock.patch.object(
+                self.bootstrap.shutil, "which", return_value="/usr/bin/codex"
+            ), unittest.mock.patch.object(
+                self.bootstrap.subprocess, "run", return_value=completed
+            ):
+                failures = self.bootstrap.install_recommended_plugins(plan)
+
+            self.assertEqual(
+                failures,
+                [
+                    "plugin install failed for github@openai-curated "
+                    "(exit 7): network unavailable"
+                ],
+            )
+
+
 class BootstrapFilesystemSafetyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.bootstrap = load_bootstrap_module()

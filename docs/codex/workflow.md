@@ -29,6 +29,19 @@ The checker compares durable mirrored files with the live `~/.codex` setup while
 ignoring expected machine-local config such as trusted project paths and absolute
 runtime read grants generated under the `agentcore_workspace` permission profile.
 
+## Recommended plugins
+
+Install the versioned developer plugin set only when requested:
+
+```bash
+python3 scripts/bootstrap_codex_environment.py --dry-run --install-recommended-plugins
+python3 scripts/bootstrap_codex_environment.py --install-recommended-plugins
+```
+
+The manifest records plugin identifiers and marketplace only. Authentication,
+installed plugin caches, and account links stay local and are completed through
+Codex when a plugin first requires them.
+
 ## Branch synchronization
 
 ```bash
